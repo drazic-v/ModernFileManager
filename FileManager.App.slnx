@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="FileManager.App/FileManager.App.csproj" />
+  <Project Path="FileManager.Core/FileManager.Core.csproj" Id="4d5b1de6-0d5e-44fd-96f3-1bd0bf3b8c3e" />
 </Solution>
