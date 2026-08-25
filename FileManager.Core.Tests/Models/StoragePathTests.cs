@@ -4,7 +4,7 @@ using System.Text;
 using Xunit;
 using FileManager.Core.Models;
 
-namespace FileManager.Core.Tests
+namespace FileManager.Core.Tests.Models
 {
     public class StoragePathTests
     {
