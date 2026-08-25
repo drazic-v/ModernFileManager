@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace FileManager.Core.Models
 {
-    internal sealed record StoragePath
+    public sealed record StoragePath
     {
         /// <summary>
         /// Identifies which IStorageProvider instance this path belongs to,
