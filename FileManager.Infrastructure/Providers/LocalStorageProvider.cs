@@ -12,12 +12,34 @@ namespace FileManager.Infrastructure.Providers
     {
         public string ProviderId { get; } = "local";
 
-        public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default) 
+        // Converts a StoragePath value to a native path string for the current OS.
+        private static string ToNativePath(string value) =>
+        OperatingSystem.IsWindows() ? value.Replace('/', '\\') : value;
+
+        // Converts a native path string to a StoragePath value.
+        private static string ToStoragePathValue(string nativePath) =>
+            nativePath.Replace('\\', '/');
+
+        public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            var nativePath = ToNativePath(path.Value);
+            var isDir = Directory.Exists(nativePath);
+            FileSystemInfo info = isDir ? new DirectoryInfo(nativePath) : new FileInfo(nativePath);
+
+            return new StorageItem
+            {
+                Path = path,
+                Name = path.Name,
+                Kind = isDir ? StorageItemKind.Directory : StorageItemKind.File,
+                SizeInBytes = isDir ? null : ((FileInfo)info).Length,
+                LastModifiedUtc = info.LastWriteTimeUtc,
+                CreatedUtc = info.CreationTimeUtc,
+                ContentType = isDir ? null : MimeMapping.MimeUtility.GetMimeMapping(nativePath),
+                Attributes = File.GetAttributes(nativePath)
+            };
         }
 
-        public async IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, [EnumeratorCancellation] CancellationToken ct = default) 
+        public IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, CancellationToken ct = default) 
         {
             throw new NotImplementedException();
         }

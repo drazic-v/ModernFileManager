@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="MimeMapping" Version="4.0.0" />
+  </ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
 	</ItemGroup>

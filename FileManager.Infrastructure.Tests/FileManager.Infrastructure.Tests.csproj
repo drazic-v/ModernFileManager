@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+	<ProjectReference Include="..\FileManager.Infrastructure\FileManager.Infrastructure.csproj" />
+    <ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
   </ItemGroup>
 
 </Project>
