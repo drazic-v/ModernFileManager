@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FileManager.Core.Models
 {
-    internal class StorageItem
+    public class StorageItem
     {
         public required StoragePath Path { get; init; }
         public required string Name { get; init; }

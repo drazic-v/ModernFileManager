@@ -15,7 +15,7 @@ namespace FileManager.Core.Providers
     /// feel instant for a local disk - because the same interface also has to
     /// work for a network call over a slow connection.
     /// </summary>
-    internal interface IStorageProvider
+    public interface IStorageProvider
     {
         /// <summary>
         /// Identifies this provider instance - see StoragePath.ProviderId.
