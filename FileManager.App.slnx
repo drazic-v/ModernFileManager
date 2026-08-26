@@ -2,4 +2,6 @@
   <Project Path="FileManager.App/FileManager.App.csproj" />
   <Project Path="FileManager.Core.Tests/FileManager.Core.Tests.csproj" Id="a680a31a-3009-456e-a36b-2a9263117140" />
   <Project Path="FileManager.Core/FileManager.Core.csproj" Id="4d5b1de6-0d5e-44fd-96f3-1bd0bf3b8c3e" />
+  <Project Path="FileManager.Infrastructure.Tests/FileManager.Infrastructure.Tests.csproj" Id="bbd2bdbf-3ce2-43b8-a508-adce7cff4288" />
+  <Project Path="FileManager.Infrastructure/FileManager.Infrastructure.csproj" Id="b2ae8e7c-3fe3-41ca-b73d-dfabebbe40f1" />
 </Solution>
