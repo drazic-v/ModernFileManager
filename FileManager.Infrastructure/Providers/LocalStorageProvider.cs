@@ -39,9 +39,37 @@ namespace FileManager.Infrastructure.Providers
             };
         }
 
-        public IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, CancellationToken ct = default) 
+        public async IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, [EnumeratorCancellation] CancellationToken ct = default) 
         {
-            throw new NotImplementedException();
+            var nativePath = ToNativePath(folder.Value);
+            var dirInfo = new DirectoryInfo(nativePath);
+
+            FileInfo[] files;
+            DirectoryInfo[] directories;
+
+            try
+            {
+                files = dirInfo.GetFiles();
+                directories = dirInfo.GetDirectories();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                yield break; // Skip this instance if access is denied
+            }
+
+            foreach (var file in files)
+            {
+                ct.ThrowIfCancellationRequested();
+                var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(file.FullName) };
+                yield return await GetInfoAsync(childPath, ct);
+            }
+
+            foreach (var directory in directories)
+            {
+                ct.ThrowIfCancellationRequested();
+                var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(directory.FullName) };
+                yield return await GetInfoAsync(childPath, ct);
+            }
         }
 
         public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) => throw new NotImplementedException();
