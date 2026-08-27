@@ -74,6 +74,8 @@ namespace FileManager.Infrastructure.Providers
 
         public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) 
         {
+            name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, ct); // Ensure unique name
+            
             var childPath = parent.Combine(name);
             var childNativePath = ToNativePath(childPath.Value);
             Directory.CreateDirectory(childNativePath);
