@@ -28,9 +28,11 @@ A learning vehicle, deliberately:
 
 ```
 FileManager.sln
-├── FileManager.App/          Avalonia UI + ReactiveUI view models, composition root
-├── FileManager.Core/         models + interfaces, zero dependencies
-└── FileManager.Core.Tests/   xUnit tests for Core
+├── FileManager.App/            Avalonia UI + ReactiveUI view models, composition root
+├── FileManager.Core/           models + interfaces, zero dependencies
+└── FileManager.Core.Tests/     xUnit tests for Core
+└── FileManager.Infrastructure/ Local Storage definitions based on Core 
+└── FileManager.Infrastructure.Tests/ xUnit tests for Infrastructure 
 ```
 
 Dependencies only point inward, toward `Core`. `Core` depends on
@@ -49,7 +51,7 @@ milestones start — see Roadmap.
 ## Roadmap
 
 - [x] Phase 0 — Setup & tooling
-- [ ] Phase 1 — Core & async basics
+- [x] Phase 1 — Core & async basics
 - [ ] Phase 2 — Local storage & first UI
 - [ ] Phase 3 — Transfer manager
 - [ ] Phase 4 — Docker & Azurite
@@ -63,4 +65,4 @@ actually runnable._
 
 ## Legacy code
 
-Legacy code might be added later becasue i would need to translate it first.
+Legacy code might be added later because i would need to translate it first.
