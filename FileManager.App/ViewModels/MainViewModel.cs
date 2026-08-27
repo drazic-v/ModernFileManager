@@ -1,14 +1,10 @@
-﻿using ReactiveUI;
+﻿using FileManager.Infrastructure.Providers;
+using FileManager.Core.Providers;
+using ReactiveUI;
 
 namespace FileManager.App.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
-    private string _greeting = "Welcome to Avalonia!";
-
-    public string Greeting
-    {
-        get => _greeting;
-        set => this.RaiseAndSetIfChanged(ref _greeting, value);
-    }
+    public MainViewModel(IStorageProvider provider) : base(provider) { }
 }

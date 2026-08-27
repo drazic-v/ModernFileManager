@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using FileManager.App.ViewModels;
 using FileManager.App.Views;
+using FileManager.Infrastructure.Providers;
 
 namespace FileManager.App;
 
@@ -17,12 +18,9 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel(),
-            };
+            var provider = new LocalStorageProvider();
+            desktop.MainWindow = new MainWindow { DataContext = new MainViewModel(provider) };
         }
-
         base.OnFrameworkInitializationCompleted();
     }
 }
