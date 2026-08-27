@@ -1,5 +1,6 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Infrastructure.Providers;
+using Newtonsoft.Json.Linq;
 
 namespace FileManager.Infrastructure.Tests.Providers
 {
@@ -106,5 +107,18 @@ namespace FileManager.Infrastructure.Tests.Providers
             Assert.Empty(items);
         }
 
+        [Fact]
+        public async Task CreateDirectoryAsync_OnValidParent_CreatesDirectory()
+        {
+            var parentPath = Path.Combine(_tempDir, "parent");
+            Directory.CreateDirectory(parentPath);
+
+            var item = await _provider.CreateDirectoryAsync(PathFor(parentPath), "newfolder");
+
+            var newPath = item.Path;
+            Assert.Equal(StorageItemKind.Directory, item.Kind);
+            Assert.Equal(PathFor(Path.Combine(parentPath, "newfolder")), newPath);
+            Assert.True(Directory.Exists(LocalStorageProvider.ToNativePath(newPath.Value)));
+        }
     }
 }

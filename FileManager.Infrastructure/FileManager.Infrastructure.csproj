@@ -12,6 +12,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
+		<InternalsVisibleTo Include="FileManager.Infrastructure.Tests" />
 	</ItemGroup>
 
 </Project>

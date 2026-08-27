@@ -13,11 +13,11 @@ namespace FileManager.Infrastructure.Providers
         public string ProviderId { get; } = "local";
 
         // Converts a StoragePath value to a native path string for the current OS.
-        private static string ToNativePath(string value) =>
+        internal static string ToNativePath(string value) =>
         OperatingSystem.IsWindows() ? value.Replace('/', '\\') : value;
 
         // Converts a native path string to a StoragePath value.
-        private static string ToStoragePathValue(string nativePath) =>
+        internal static string ToStoragePathValue(string nativePath) =>
             nativePath.Replace('\\', '/');
 
         public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
@@ -72,7 +72,14 @@ namespace FileManager.Infrastructure.Providers
             }
         }
 
-        public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) 
+        {
+            var childPath = parent.Combine(name);
+            var childNativePath = ToNativePath(childPath.Value);
+            Directory.CreateDirectory(childNativePath);
+
+            return await GetInfoAsync(childPath, ct);
+        }
         public Task DeleteAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
