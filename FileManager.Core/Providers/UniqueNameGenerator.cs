@@ -20,12 +20,10 @@ namespace FileManager.Core.Providers
                 : desiredName;
 
             var existingNames = new HashSet<string>(StringComparer.Ordinal);
-            var uniqueName = desiredName;
             await foreach (var item in provider.ListAsync(parentFolder, ct))
             {
                 ct.ThrowIfCancellationRequested();
-                if (item.Kind == type)
-                    existingNames.Add(item.Name);
+                existingNames.Add(item.Name);
             }
 
             if (!existingNames.Contains(desiredName))

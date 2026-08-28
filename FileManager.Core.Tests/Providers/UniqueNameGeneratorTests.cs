@@ -48,5 +48,17 @@ namespace FileManager.Core.Tests.Providers
 
             Assert.Equal("report (2).pdf", result);
         }
+
+        [Fact]
+        public async Task GenerateAsync_WhenDifferentKindItemHasSameName_StillDetectsCollision()
+        {
+            var provider = new FakeStorageProvider();
+            var parent = new StoragePath { ProviderId = "fake", Value = "/root" };
+            provider.AddChildren("/root", MakeItem(parent, "notes", StorageItemKind.Directory));
+
+            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "notes", StorageItemKind.File);
+
+            Assert.Equal("notes (2)", result);
+        }
     }
 }
