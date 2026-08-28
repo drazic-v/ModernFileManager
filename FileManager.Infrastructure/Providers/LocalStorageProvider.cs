@@ -19,6 +19,17 @@ namespace FileManager.Infrastructure.Providers
         // Converts a native path string to a StoragePath value.
         internal static string ToStoragePathValue(string nativePath) =>
             nativePath.Replace('\\', '/');
+        internal static bool IsValidFileName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+
+            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                return false;
+
+            return true;
+        }
+
 
         public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
         {
@@ -97,7 +108,31 @@ namespace FileManager.Infrastructure.Providers
                 // vanished between the Exists check and the Delete call - already gone is already success
             }
         }
-        public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default)
+        {
+            if (!IsValidFileName(newName))
+                throw new ArgumentException("New name is not valid.", nameof(newName));
+
+            var nativePath = ToNativePath(path.Value);
+            var attr = File.GetAttributes(nativePath);
+            var kind = attr.HasFlag(FileAttributes.Directory) ? StorageItemKind.Directory : StorageItemKind.File;
+
+            if (newName == path.Name)
+                return await GetInfoAsync(path, ct);
+
+            var parentPath = path.Parent() ?? throw new InvalidOperationException("Cannot rename a root item.");
+            newName = await UniqueNameGenerator.GenerateAsync(this, parentPath, newName, kind, ct);
+
+            var newPath = parentPath.Combine(newName);
+            var newNativePath = ToNativePath(newPath.Value);
+
+            if (kind == StorageItemKind.Directory)
+                Directory.Move(nativePath, newNativePath);
+            else
+                File.Move(nativePath, newNativePath);
+
+            return await GetInfoAsync(newPath, ct);
+        }
         public Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
         public Task OpenAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
