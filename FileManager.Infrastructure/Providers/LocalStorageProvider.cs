@@ -82,7 +82,21 @@ namespace FileManager.Infrastructure.Providers
 
             return await GetInfoAsync(childPath, ct);
         }
-        public Task DeleteAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task DeleteAsync(StoragePath path, CancellationToken ct = default)
+        {
+            var nativePath = ToNativePath(path.Value);
+            try
+            {
+                if (Directory.Exists(nativePath))
+                    Directory.Delete(nativePath, recursive: true);
+                else if (File.Exists(nativePath))
+                    File.Delete(nativePath);
+            }
+            catch (Exception ex) when (ex is DirectoryNotFoundException or FileNotFoundException)
+            {
+                // vanished between the Exists check and the Delete call - already gone is already success
+            }
+        }
         public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
