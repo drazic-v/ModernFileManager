@@ -30,21 +30,99 @@ namespace FileManager.Infrastructure.Providers
             return true;
         }
 
-        internal static void CopyDirectoryRecursively(string sourceDir, string destinationDir)
+        internal static void CopyDirectoryRecursively(
+    string sourceDir, string destinationDir, IProgress<TransferProgress>? progress, CancellationToken ct)
         {
+            CopyDirectoryRecursiveCore(sourceDir, destinationDir, new TransferAccumulator(), progress, ct);
+        }
+
+        private static void CopyDirectoryRecursiveCore(
+            string sourceDir, string destinationDir, TransferAccumulator acc,
+            IProgress<TransferProgress>? progress, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
             Directory.CreateDirectory(destinationDir);
+
             foreach (var file in Directory.GetFiles(sourceDir))
             {
+                ct.ThrowIfCancellationRequested();
                 var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
                 File.Copy(file, destFile);
+                acc.Bytes += new FileInfo(destFile).Length;
+                acc.Files++;
+                progress?.Report(new TransferProgress(acc.Bytes, acc.Files));
             }
             foreach (var directory in Directory.GetDirectories(sourceDir))
             {
-                var destDir = Path.Combine(destinationDir, Path.GetFileName(directory));
-                CopyDirectoryRecursively(directory, destDir);
+                CopyDirectoryRecursiveCore(directory, Path.Combine(destinationDir, Path.GetFileName(directory)), acc, progress, ct);
             }
         }
 
+        internal async Task MergeDirectoriesRecursivelyAsync(
+    string sourceDir, string destinationDir, ConflictResolver resolver,
+    IProgress<TransferProgress>? progress, CancellationToken ct)
+        {
+            await MergeCoreAsync(sourceDir, destinationDir, resolver, new TransferAccumulator(), progress, ct);
+        }
+
+        private async Task MergeCoreAsync(
+            string sourceDir, string destinationDir, ConflictResolver resolver,
+            TransferAccumulator acc, IProgress<TransferProgress>? progress, CancellationToken ct)
+        {
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                ct.ThrowIfCancellationRequested();
+                var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+
+                if (!File.Exists(destFile))
+                {
+                    File.Copy(file, destFile);
+                }
+                else
+                {
+                    var destPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(destFile) };
+                    var policy = await resolver(destPath, StorageItemKind.File, ct);
+                    switch (policy)
+                    {
+                        case NameCollisionPolicy.Replace:
+                            File.Replace(file, destFile, null);
+                            break;
+                        case NameCollisionPolicy.GenerateUnique:
+                            var destFolder = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(destinationDir) };
+                            var uniqueName = await UniqueNameGenerator.GenerateAsync(this, destFolder, Path.GetFileName(file), StorageItemKind.File, ct);
+                            destFile = Path.Combine(destinationDir, uniqueName);
+                            File.Copy(file, destFile);
+                            break;
+                        case NameCollisionPolicy.Skip:
+                            continue; // nothing copied - don't touch acc or report
+                        case NameCollisionPolicy.Fail:
+                            throw new IOException($"An item named '{Path.GetFileName(file)}' already exists at the destination.");
+                        case NameCollisionPolicy.Merge:
+                            throw new ArgumentException("Merge is not a valid resolution for a file conflict.", nameof(policy));
+                    }
+                }
+
+                acc.Bytes += new FileInfo(destFile).Length;
+                acc.Files++;
+                progress?.Report(new TransferProgress(acc.Bytes, acc.Files));
+            }
+
+            foreach (var directory in Directory.GetDirectories(sourceDir))
+            {
+                ct.ThrowIfCancellationRequested();
+                var destDir = Path.Combine(destinationDir, Path.GetFileName(directory));
+
+                if (!Directory.Exists(destDir))
+                {
+                    Directory.CreateDirectory(destDir);
+                    CopyDirectoryRecursiveCore(directory, destDir, acc, progress, ct); // same accumulator - one running total across the whole merge
+                }
+                else
+                {
+                    await MergeCoreAsync(directory, destDir, resolver, acc, progress, ct);
+                }
+            }
+        }
 
         public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
         {
@@ -148,22 +226,79 @@ namespace FileManager.Infrastructure.Providers
 
             return await GetInfoAsync(newPath, ct);
         }
-        public async Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+        private static async Task CopyItemAsync(
+    string nativeSource, string nativeDestination, StorageItemKind kind,
+    IProgress<TransferProgress>? progress, CancellationToken ct)
         {
-            var nativeSource = ToNativePath(source.Value);            
+            if (kind == StorageItemKind.Directory)
+            {
+                await Task.Run(() => CopyDirectoryRecursively(nativeSource, nativeDestination, progress, ct), ct);
+            }
+            else
+            {
+                await Task.Run(() =>
+                {
+                    ct.ThrowIfCancellationRequested(); // can bail before a huge single file starts; can't interrupt mid-copy - File.Copy has no cancellable overload
+                    File.Copy(nativeSource, nativeDestination);
+                    progress?.Report(new TransferProgress(new FileInfo(nativeDestination).Length, 1));
+                }, ct);
+            }
+        }
+
+        public async Task<StorageItem> CopyAsync(
+            StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+        {
+            var nativeSource = ToNativePath(source.Value);
             var attr = File.GetAttributes(nativeSource);
             var kind = attr.HasFlag(FileAttributes.Directory) ? StorageItemKind.Directory : StorageItemKind.File;
 
-            var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
-            var destinationPath = destinationFolder.Combine(newName);
+            var destinationPath = destinationFolder.Combine(source.Name);
             var nativeDestination = ToNativePath(destinationPath.Value);
+            var conflicts = kind == StorageItemKind.Directory ? Directory.Exists(nativeDestination) : File.Exists(nativeDestination);
 
-            if (kind == StorageItemKind.Directory)
-                CopyDirectoryRecursively(nativeSource, nativeDestination); // For directories, use recursive copy
-            else if (kind == StorageItemKind.File)
-                File.Copy(nativeSource, nativeDestination);
+            if (!conflicts)
+            {
+                await CopyItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                return await GetInfoAsync(destinationPath, ct);
+            }
 
-            return await GetInfoAsync(new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(nativeDestination) }, ct);
+            var policy = await resolver(destinationPath, kind, ct);
+            switch (policy)
+            {
+                case NameCollisionPolicy.GenerateUnique:
+                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
+                    destinationPath = destinationFolder.Combine(newName);
+                    nativeDestination = ToNativePath(destinationPath.Value);
+                    await CopyItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                    break;
+                case NameCollisionPolicy.Replace:
+                    if (kind == StorageItemKind.Directory)
+                    {
+                        await DeleteAsync(destinationPath, ct);
+                        await CopyItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                    }
+                    else
+                    {
+                        await Task.Run(() =>
+                        {
+                            File.Replace(nativeSource, nativeDestination, null);
+                            progress?.Report(new TransferProgress(new FileInfo(nativeDestination).Length, 1));
+                        }, ct);
+                    }
+                    break;
+                case NameCollisionPolicy.Merge:
+                    if (kind != StorageItemKind.Directory)
+                        throw new ArgumentException("Merge only applies when both source and destination are directories.", nameof(policy));
+                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, progress, ct);
+                    break;
+                case NameCollisionPolicy.Skip:
+                    return await GetInfoAsync(destinationPath, ct);
+                case NameCollisionPolicy.Fail:
+                    throw new IOException($"An item named '{source.Name}' already exists at the destination.");
+            }
+
+            return await GetInfoAsync(destinationPath, ct);
         }
         public async Task<StorageItem> CopyAsync(
             StoragePath source, StoragePath destinationFolder,
@@ -184,5 +319,11 @@ namespace FileManager.Infrastructure.Providers
         public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Stream> OpenWriteAsync(StoragePath destination, CancellationToken ct = default) => throw new NotImplementedException();
+    }
+
+    sealed class TransferAccumulator
+    {
+        public long Bytes;
+        public int Files;
     }
 }

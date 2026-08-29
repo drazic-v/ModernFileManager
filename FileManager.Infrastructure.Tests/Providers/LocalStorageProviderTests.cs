@@ -1,4 +1,5 @@
 ﻿using FileManager.Core.Models;
+using FileManager.Core.Providers;
 using FileManager.Infrastructure.Providers;
 using Newtonsoft.Json.Linq;
 
@@ -360,6 +361,63 @@ namespace FileManager.Infrastructure.Tests.Providers
             var item = await _provider.CopyAsync(PathFor(dirPath), PathFor(destFolder));
 
             Assert.Equal("Client Files v2.1 (2)", item.Name);
+        }
+
+        [Fact]
+        public async Task CopyAsync_OnReplaceRequest_ReplacesTheRequiredFile()
+        {
+            var filePath = Path.Combine(_tempDir, "test.txt");
+            await File.WriteAllTextAsync(filePath, "hello");
+            var destFolder = Path.Combine(_tempDir, "dest");
+            Directory.CreateDirectory(destFolder);
+            var destFilePath = Path.Combine(destFolder, "test.txt");
+            await File.WriteAllTextAsync(destFilePath, "world");
+            var item = await _provider.CopyAsync(PathFor(filePath), PathFor(destFolder), NameCollisionPolicy.Replace);
+            Assert.Equal("test.txt", item.Name);
+            Assert.True(File.Exists(destFilePath));
+            var content = await File.ReadAllTextAsync(destFilePath);
+            Assert.Equal("hello", content); // the destination file should now contain the source file's content
+        }
+
+        [Fact]
+        public async Task CopyAsync_OnReplaceRequestForDirectory_ReplacesTheRequiredDirectory()
+        {
+            var dirPath = Path.Combine(_tempDir, "subfolder");
+            Directory.CreateDirectory(dirPath);
+            await File.WriteAllTextAsync(Path.Combine(dirPath, "file.txt"), "hello");
+            var destFolder = Path.Combine(_tempDir, "dest");
+            Directory.CreateDirectory(destFolder);
+            var destDirPath = Path.Combine(destFolder, "subfolder");
+            Directory.CreateDirectory(destDirPath);
+            await File.WriteAllTextAsync(Path.Combine(destDirPath, "oldfile.txt"), "world");
+            var item = await _provider.CopyAsync(PathFor(dirPath), PathFor(destFolder), NameCollisionPolicy.Replace);
+            Assert.Equal("subfolder", item.Name);
+            Assert.True(Directory.Exists(destDirPath));
+            Assert.True(File.Exists(Path.Combine(destDirPath, "file.txt")));
+            Assert.False(File.Exists(Path.Combine(destDirPath, "oldfile.txt"))); // the old file should be gone
+        }
+
+        [Fact]
+        public async Task CopyAsync_OnConflict_InvokesResolverWithCorrectDestinationAndKind()
+        {
+            var filePath = Path.Combine(_tempDir, "test.txt");
+            await File.WriteAllTextAsync(filePath, "hello");
+            var destFolder = Path.Combine(_tempDir, "dest");
+            Directory.CreateDirectory(destFolder);
+            await File.WriteAllTextAsync(Path.Combine(destFolder, "test.txt"), "world");
+
+            StoragePath? seenPath = null;
+            StorageItemKind? seenKind = null;
+
+            await _provider.CopyAsync(PathFor(filePath), PathFor(destFolder), (path, kind, _) =>
+            {
+                seenPath = path;
+                seenKind = kind;
+                return Task.FromResult(NameCollisionPolicy.Skip);
+            });
+
+            Assert.Equal("test.txt", seenPath!.Name);
+            Assert.Equal(StorageItemKind.File, seenKind);
         }
     }
 }
