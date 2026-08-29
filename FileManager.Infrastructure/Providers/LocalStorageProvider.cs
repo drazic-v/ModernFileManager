@@ -30,6 +30,21 @@ namespace FileManager.Infrastructure.Providers
             return true;
         }
 
+        internal static void CopyDirectoryRecursively(string sourceDir, string destinationDir)
+        {
+            Directory.CreateDirectory(destinationDir);
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+                File.Copy(file, destFile);
+            }
+            foreach (var directory in Directory.GetDirectories(sourceDir))
+            {
+                var destDir = Path.Combine(destinationDir, Path.GetFileName(directory));
+                CopyDirectoryRecursively(directory, destDir);
+            }
+        }
+
 
         public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
         {
@@ -133,7 +148,23 @@ namespace FileManager.Infrastructure.Providers
 
             return await GetInfoAsync(newPath, ct);
         }
-        public Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default)
+        {
+            var nativeSource = ToNativePath(source.Value);            
+            var attr = File.GetAttributes(nativeSource);
+            var kind = attr.HasFlag(FileAttributes.Directory) ? StorageItemKind.Directory : StorageItemKind.File;
+
+            var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
+            var destinationPath = destinationFolder.Combine(newName);
+            var nativeDestination = ToNativePath(destinationPath.Value);
+
+            if (kind == StorageItemKind.Directory)
+                CopyDirectoryRecursively(nativeSource, nativeDestination); // For directories, use recursive copy
+            else if (kind == StorageItemKind.File)
+                File.Copy(nativeSource, nativeDestination);
+
+            return await GetInfoAsync(new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(nativeDestination) }, ct);
+        }
         public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
         public Task OpenAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
 
