@@ -88,7 +88,7 @@ namespace FileManager.Core.Tests.Providers
             cts.Cancel();
 
             await Assert.ThrowsAsync<OperationCanceledException>(() =>
-                FolderInfoCalculator.GetFolderInfo(provider, folder, cts.Token));
+                FolderInfoCalculator.GetFolderInfo(provider, folder, null, cts.Token));
         }
     }
 }
