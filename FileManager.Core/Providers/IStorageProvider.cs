@@ -38,8 +38,24 @@ namespace FileManager.Core.Providers
         /// copy, an NTFS same-volume move) instead of always reading and
         /// rewriting every byte through the app.
         /// </summary>
-        Task<StorageItem> CopyAsync(StoragePath source, StoragePath destination, CancellationToken ct = default);
-        Task<StorageItem> MoveAsync(StoragePath source, StoragePath destination, CancellationToken ct = default);
+        Task<StorageItem> CopyAsync(
+            StoragePath source, StoragePath destinationFolder,
+            ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default);
+
+        Task<StorageItem> CopyAsync(
+            StoragePath source, StoragePath destinationFolder,
+            NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+            => CopyAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct); 
+        Task<StorageItem> MoveAsync(
+            StoragePath source, StoragePath destinationFolder,
+            ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default);
+
+        Task<StorageItem> MoveAsync(
+            StoragePath source, StoragePath destinationFolder,
+            NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+            => MoveAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
 
         Task OpenAsync(StoragePath path, CancellationToken ct = default);
 

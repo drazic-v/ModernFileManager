@@ -148,7 +148,7 @@ namespace FileManager.Infrastructure.Providers
 
             return await GetInfoAsync(newPath, ct);
         }
-        public async Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default)
+        public async Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
         {
             var nativeSource = ToNativePath(source.Value);            
             var attr = File.GetAttributes(nativeSource);
@@ -165,7 +165,20 @@ namespace FileManager.Infrastructure.Providers
 
             return await GetInfoAsync(new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(nativeDestination) }, ct);
         }
-        public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<StorageItem> CopyAsync(
+            StoragePath source, StoragePath destinationFolder,
+            NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+            => await CopyAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
+
+        public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default) => throw new NotImplementedException();
+
+        public async Task<StorageItem> MoveAsync(
+            StoragePath source, StoragePath destinationFolder,
+            NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+            => await MoveAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
+
         public Task OpenAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
 
         public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
