@@ -2,6 +2,7 @@
 using FileManager.Core.Providers;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -306,7 +307,68 @@ namespace FileManager.Infrastructure.Providers
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
             => await CopyAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
 
-        public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default) => throw new NotImplementedException();
+        private static async Task MoveItemAsync(
+   string nativeSource, string nativeDestination, StorageItemKind kind,
+   IProgress<TransferProgress>? progress, CancellationToken ct)
+        {
+            if (kind == StorageItemKind.Directory)
+                await Task.Run(() => Directory.Move(nativeSource, nativeDestination), ct);
+            else
+            {
+                await Task.Run(() =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    File.Move(nativeSource, nativeDestination);
+                    progress?.Report(new TransferProgress(new FileInfo(nativeDestination).Length, 1));
+                }, ct);
+            }
+        }
+
+
+        public async Task<StorageItem> MoveAsync(
+            StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
+            IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+        { 
+            var nativeSource = ToNativePath(source.Value);
+            var attr = File.GetAttributes(nativeSource);
+            var kind = attr.HasFlag(FileAttributes.Directory) ? StorageItemKind.Directory : StorageItemKind.File;
+
+            var destinationPath = destinationFolder.Combine(source.Name);
+            var nativeDestination = ToNativePath(destinationPath.Value);
+            var conflicts = kind == StorageItemKind.Directory ? Directory.Exists(nativeDestination) : File.Exists(nativeDestination);
+
+            if (!conflicts)
+            {
+                await MoveItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                return await GetInfoAsync(destinationPath, ct);
+            }
+
+            var policy = await resolver(destinationPath, kind, ct);
+            switch (policy)
+            {
+                case NameCollisionPolicy.GenerateUnique:
+                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
+                    destinationPath = destinationFolder.Combine(newName);
+                    nativeDestination = ToNativePath(destinationPath.Value);
+                    await MoveItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                    break;
+                case NameCollisionPolicy.Replace:
+                    await DeleteAsync(destinationPath, ct);
+                    await MoveItemAsync(nativeSource, nativeDestination, kind, progress, ct);
+                    break;
+                case NameCollisionPolicy.Merge:
+                    if (kind != StorageItemKind.Directory)
+                        throw new ArgumentException("Merge only applies when both source and destination are directories.", nameof(policy));
+                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, progress, ct);
+                    await DeleteAsync(source, ct); // Remove the source directory after merging
+                    break;
+                case NameCollisionPolicy.Skip:
+                    return await GetInfoAsync(destinationPath, ct);
+                case NameCollisionPolicy.Fail:
+                    throw new IOException($"An item named '{source.Name}' already exists at the destination.");
+            }
+            return await GetInfoAsync(destinationPath, ct);
+        }
 
         public async Task<StorageItem> MoveAsync(
             StoragePath source, StoragePath destinationFolder,
