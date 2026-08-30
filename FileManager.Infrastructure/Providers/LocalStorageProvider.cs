@@ -31,6 +31,16 @@ namespace FileManager.Infrastructure.Providers
             return true;
         }
 
+        // Deletes empty directories from bottom up
+        private static void DeleteEmptyDirectoriesRecursively(string dir)
+        {
+            foreach (var subDir in Directory.GetDirectories(dir))
+                DeleteEmptyDirectoriesRecursively(subDir);
+
+            if(!Directory.EnumerateFileSystemEntries(dir).Any())
+                Directory.Delete(dir);
+        }
+
         internal static void CopyDirectoryRecursively(
     string sourceDir, string destinationDir, IProgress<TransferProgress>? progress, CancellationToken ct)
         {
@@ -60,14 +70,14 @@ namespace FileManager.Infrastructure.Providers
         }
 
         internal async Task MergeDirectoriesRecursivelyAsync(
-    string sourceDir, string destinationDir, ConflictResolver resolver,
+    string sourceDir, string destinationDir, ConflictResolver resolver, bool isMove,
     IProgress<TransferProgress>? progress, CancellationToken ct)
         {
-            await MergeCoreAsync(sourceDir, destinationDir, resolver, new TransferAccumulator(), progress, ct);
+            await MergeCoreAsync(sourceDir, destinationDir, resolver, isMove, new TransferAccumulator(), progress, ct);
         }
 
         private async Task MergeCoreAsync(
-            string sourceDir, string destinationDir, ConflictResolver resolver,
+            string sourceDir, string destinationDir, ConflictResolver resolver, bool isMove,
             TransferAccumulator acc, IProgress<TransferProgress>? progress, CancellationToken ct)
         {
             foreach (var file in Directory.GetFiles(sourceDir))
@@ -77,7 +87,7 @@ namespace FileManager.Infrastructure.Providers
 
                 if (!File.Exists(destFile))
                 {
-                    File.Copy(file, destFile);
+                    if (isMove) File.Move(file, destFile); else File.Copy(file, destFile);
                 }
                 else
                 {
@@ -86,16 +96,17 @@ namespace FileManager.Infrastructure.Providers
                     switch (policy)
                     {
                         case NameCollisionPolicy.Replace:
-                            File.Replace(file, destFile, null);
+                            if (isMove) { File.Delete(destFile); File.Move(file, destFile); }
+                            else File.Replace(file, destFile, null);
                             break;
                         case NameCollisionPolicy.GenerateUnique:
                             var destFolder = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(destinationDir) };
                             var uniqueName = await UniqueNameGenerator.GenerateAsync(this, destFolder, Path.GetFileName(file), StorageItemKind.File, ct);
                             destFile = Path.Combine(destinationDir, uniqueName);
-                            File.Copy(file, destFile);
+                            if (isMove) File.Move(file, destFile); else File.Copy(file, destFile);
                             break;
                         case NameCollisionPolicy.Skip:
-                            continue; // nothing copied - don't touch acc or report
+                            continue; // for a move: leave this file exactly where it is - it must not get swept up by cleanup later
                         case NameCollisionPolicy.Fail:
                             throw new IOException($"An item named '{Path.GetFileName(file)}' already exists at the destination.");
                         case NameCollisionPolicy.Merge:
@@ -115,16 +126,17 @@ namespace FileManager.Infrastructure.Providers
 
                 if (!Directory.Exists(destDir))
                 {
-                    Directory.CreateDirectory(destDir);
-                    CopyDirectoryRecursiveCore(directory, destDir, acc, progress, ct); // same accumulator - one running total across the whole merge
+                    if (isMove)
+                        await Task.Run(() => Directory.Move(directory, destDir), ct); // whole subtree, no conflicts inside - a real move, not copy-then-cleanup
+                    else
+                        CopyDirectoryRecursiveCore(directory, destDir, acc, progress, ct);
                 }
                 else
                 {
-                    await MergeCoreAsync(directory, destDir, resolver, acc, progress, ct);
+                    await MergeCoreAsync(directory, destDir, resolver, isMove, acc, progress, ct);
                 }
             }
         }
-
         public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
         {
             var nativePath = ToNativePath(path.Value);
@@ -291,7 +303,7 @@ namespace FileManager.Infrastructure.Providers
                 case NameCollisionPolicy.Merge:
                     if (kind != StorageItemKind.Directory)
                         throw new ArgumentException("Merge only applies when both source and destination are directories.", nameof(policy));
-                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, progress, ct);
+                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, false, progress, ct);
                     break;
                 case NameCollisionPolicy.Skip:
                     return await GetInfoAsync(destinationPath, ct);
@@ -359,8 +371,8 @@ namespace FileManager.Infrastructure.Providers
                 case NameCollisionPolicy.Merge:
                     if (kind != StorageItemKind.Directory)
                         throw new ArgumentException("Merge only applies when both source and destination are directories.", nameof(policy));
-                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, progress, ct);
-                    await DeleteAsync(source, ct); // Remove the source directory after merging
+                    await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, true, progress, ct);
+                    await Task.Run(() => DeleteEmptyDirectoriesRecursively(nativeSource), ct);
                     break;
                 case NameCollisionPolicy.Skip:
                     return await GetInfoAsync(destinationPath, ct);
