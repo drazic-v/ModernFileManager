@@ -57,7 +57,7 @@ namespace FileManager.Core.Providers
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
             => MoveAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
 
-        Task OpenAsync(StoragePath path, CancellationToken ct = default);
+        Task OpenFileAsync(StoragePath path, CancellationToken ct = default);
 
         IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default);
         

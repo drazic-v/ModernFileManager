@@ -29,7 +29,7 @@ namespace FileManager.Core.Tests.Fakes
         public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task OpenAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task OpenFileAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
 
         public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();

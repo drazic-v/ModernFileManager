@@ -3,6 +3,7 @@ using FileManager.Core.Providers;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -388,7 +389,16 @@ namespace FileManager.Infrastructure.Providers
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
             => await MoveAsync(source, destinationFolder, (_, _, _) => Task.FromResult(policy), progress, ct);
 
-        public Task OpenAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task OpenFileAsync(StoragePath path, CancellationToken ct = default)
+        {
+            var nativePath = ToNativePath(path.Value);
+            var attr = File.GetAttributes(nativePath);
+
+            if (attr.HasFlag(FileAttributes.Directory))
+                throw new ArgumentException("Cannot open a directory as a file - will be done through the ui layer!", nameof(path));
+
+            Process.Start(new ProcessStartInfo(nativePath) { UseShellExecute = true });
+        }
 
         public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
