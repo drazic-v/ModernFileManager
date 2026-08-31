@@ -401,7 +401,17 @@ namespace FileManager.Infrastructure.Providers
         }
 
         public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default)
+        {
+            var nativePath = ToNativePath(path.Value);
+            var attr = File.GetAttributes(nativePath);
+
+            if (attr.HasFlag(FileAttributes.Directory))
+                throw new ArgumentException("Cannot open a directory as a stream!", nameof(path));
+
+            ct.ThrowIfCancellationRequested();
+            return new FileStream(nativePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
+        }
         public Task<Stream> OpenWriteAsync(StoragePath destination, CancellationToken ct = default) => throw new NotImplementedException();
     }
 
