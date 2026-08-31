@@ -407,12 +407,21 @@ namespace FileManager.Infrastructure.Providers
             var attr = File.GetAttributes(nativePath);
 
             if (attr.HasFlag(FileAttributes.Directory))
-                throw new ArgumentException("Cannot open a directory as a stream!", nameof(path));
+                throw new ArgumentException("Cannot open a directory as a stream!", nameof(nativePath));
 
             ct.ThrowIfCancellationRequested();
             return new FileStream(nativePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
         }
-        public Task<Stream> OpenWriteAsync(StoragePath destination, CancellationToken ct = default) => throw new NotImplementedException();
+        public async Task<Stream> OpenWriteAsync(StoragePath destination, CancellationToken ct = default)
+        {
+            var nativePath = ToNativePath(destination.Value);
+
+            if (Directory.Exists(nativePath))
+                throw new ArgumentException("Cannot open a directory as a stream!", nameof(nativePath));
+
+            ct.ThrowIfCancellationRequested();
+            return new FileStream(nativePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true);
+        }
     }
 
     sealed class TransferAccumulator
