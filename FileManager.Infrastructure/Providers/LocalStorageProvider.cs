@@ -393,7 +393,32 @@ namespace FileManager.Infrastructure.Providers
             Process.Start(new ProcessStartInfo(nativePath) { UseShellExecute = true });
         }
 
-        public IAsyncEnumerable<StorageItem> SearchAsync(StoragePath root, string query, CancellationToken ct = default) => throw new NotImplementedException();
+        public IAsyncEnumerable<StorageItem> SearchAsync(
+            StoragePath root, string query, CancellationToken ct = default)
+        {
+            var nativeDir = ToNativePath(root.Value);
+            if (!Directory.Exists(nativeDir)) // Split from lazy recursion work, more efficent and check is only needed on the inital root
+                throw new ArgumentException("Provided root directory must exist!", nameof(root));
+
+            return SearchRecursiveAsync(root, query, ct);
+        }
+
+        private async IAsyncEnumerable<StorageItem> SearchRecursiveAsync(
+            StoragePath folder, string query,
+            [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await foreach (var storageItem in ListAsync(folder, ct))
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (storageItem.Path.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    yield return storageItem;
+
+                if (storageItem.Kind == StorageItemKind.Directory)
+                    await foreach (var subItem in SearchRecursiveAsync(storageItem.Path, query, ct))
+                        yield return subItem;
+            }
+        }
         public async Task<Stream> OpenReadAsync(StoragePath path, CancellationToken ct = default)
         {
             var nativePath = ToNativePath(path.Value);
