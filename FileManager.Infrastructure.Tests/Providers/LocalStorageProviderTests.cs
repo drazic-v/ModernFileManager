@@ -1,6 +1,7 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using FileManager.Infrastructure.Providers;
+using FileManager.TestKit;
 using Newtonsoft.Json.Linq;
 
 namespace FileManager.Infrastructure.Tests.Providers
@@ -10,21 +11,21 @@ namespace FileManager.Infrastructure.Tests.Providers
     /// Split up into different files as a partial class to ensure
     /// ease of use and access
     /// </summary>
-    public partial class LocalStorageProviderTests : IAsyncLifetime
+    public partial class LocalStorageProviderTests : StorageProviderContractTests
     {
         private string _tempDir = null!;
         private LocalStorageProvider _provider = null!;
 
-        public Task InitializeAsync()
+        protected override Task<(IStorageProvider, StoragePath)> CreateProviderAsync()
         {
             _tempDir = Directory.CreateTempSubdirectory().FullName;
-            _provider = new LocalStorageProvider();
-            return Task.CompletedTask;
+            var root = new StoragePath { ProviderId = "local", Value = _tempDir.Replace('\\', '/') };
+            return Task.FromResult(((IStorageProvider)new LocalStorageProvider(), root));
         }
 
-        public Task DisposeAsync()
+        protected override Task CleanupAsync(StoragePath _)
         {
-            Directory.Delete(_tempDir, true);
+            Directory.Delete(_tempDir, recursive: true);
             return Task.CompletedTask;
         }
 
