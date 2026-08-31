@@ -21,16 +21,6 @@ namespace FileManager.Infrastructure.Providers
         // Converts a native path string to a StoragePath value.
         internal static string ToStoragePathValue(string nativePath) =>
             nativePath.Replace('\\', '/');
-        internal static bool IsValidFileName(string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return false;
-
-            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-                return false;
-
-            return true;
-        }
 
         // Deletes empty directories from bottom up
         private static void DeleteEmptyDirectoriesRecursively(string dir)
@@ -192,6 +182,9 @@ namespace FileManager.Infrastructure.Providers
 
         public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) 
         {
+            if(!FileNameValidator.IsValid(name))
+                throw new ArgumentException("Name is not valid.", nameof(name));
+
             name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, ct); // Ensure unique name
             
             var childPath = parent.Combine(name);
@@ -217,7 +210,7 @@ namespace FileManager.Infrastructure.Providers
         }
         public async Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default)
         {
-            if (!IsValidFileName(newName))
+            if (!FileNameValidator.IsValid(newName))
                 throw new ArgumentException("New name is not valid.", nameof(newName));
 
             var nativePath = ToNativePath(path.Value);
