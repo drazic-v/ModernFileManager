@@ -10,15 +10,22 @@
         Title="FileManager.App">
 
     <ListBox ItemsSource="{Binding Items}">
-        <ListBox.ItemTemplate>
-            <DataTemplate>
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <TextBlock Text="{Binding Name}" Width="300"/>
-                    <TextBlock Text="{Binding Kind}" Width="100"/>
-                    <TextBlock Text="{Binding SizeInBytes}" Width="100"/>
-                </StackPanel>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
+         <DockPanel>
+        <Button DockPanel.Dock="Top" Content="Up" Command="{Binding NavigateUpCommand}"/>
+        <ListBox ItemsSource="{Binding Items}"
+                 SelectedItem="{Binding SelectedItem}"
+                 DoubleTapped="OnItemDoubleTapped">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="{Binding Name}" Width="300"/>
+                        <TextBlock Text="{Binding Kind}" Width="100"/>
+                        <TextBlock Text="{Binding SizeInBytes}" Width="100"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
     </ListBox>
 
 </Window>
