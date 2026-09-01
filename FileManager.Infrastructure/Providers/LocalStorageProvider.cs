@@ -169,14 +169,26 @@ namespace FileManager.Infrastructure.Providers
             {
                 ct.ThrowIfCancellationRequested();
                 var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(file.FullName) };
-                yield return await GetInfoAsync(childPath, ct);
+                
+                StorageItem? item = null;
+                try { item = await GetInfoAsync(childPath, ct); }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+                
+                if (item is not null)
+                    yield return item;
             }
 
             foreach (var directory in directories)
             {
                 ct.ThrowIfCancellationRequested();
                 var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(directory.FullName) };
-                yield return await GetInfoAsync(childPath, ct);
+                
+                StorageItem? item = null;
+                try { item = await GetInfoAsync(childPath, ct); }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+
+                if (item is not null)
+                    yield return item;
             }
         }
 
