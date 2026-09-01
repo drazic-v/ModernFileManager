@@ -9,6 +9,7 @@ namespace FileManager.App.ViewModels;
 
 public abstract class ViewModelBase : ReactiveObject
 {
+    private bool _showHiddenItems;
     private readonly IStorageProvider _provider;
     private StoragePath _currentFolder;
     private StorageItem? _selectedItem;
@@ -30,6 +31,7 @@ public abstract class ViewModelBase : ReactiveObject
     public ReactiveCommand<Unit, Unit> NavigateUpCommand { get; }
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder)
     {
+        _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
@@ -40,7 +42,12 @@ public abstract class ViewModelBase : ReactiveObject
     {
         Items.Clear();
         await foreach (var item in _provider.ListAsync(folder))
-            Items.Add(item);
+        {
+            if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+            {
+                Items.Add(item);
+            }
+        }
         CurrentFolder = folder;
     }
 
