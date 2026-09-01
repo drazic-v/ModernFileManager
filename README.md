@@ -33,6 +33,7 @@ FileManager.sln
 └── FileManager.Core.Tests/     xUnit tests for Core
 └── FileManager.Infrastructure/ Local Storage definitions based on Core 
 └── FileManager.Infrastructure.Tests/ xUnit tests for Infrastructure 
+└──fFileManager.TestKit/        xUnit tests common for all providers
 ```
 
 Dependencies only point inward, toward `Core`. `Core` depends on
@@ -52,15 +53,16 @@ milestones start — see Roadmap.
 
 - [x] Phase 0 — Setup & tooling
 - [x] Phase 1 — Core & async basics
-- [ ] Phase 2 — Local storage & first UI
-- [ ] Phase 3 — Transfer manager
-- [ ] Phase 4 — Docker & Azurite
-- [ ] Phase 5 — Azure provider
-- [ ] Phase 6 — Search, preview & polish
+- [x] Phase 2 — Local storage & first UI
+- [ ] Phase 3 — basic UI interactions
+- [ ] Phase 4 — Transfer manager
+- [ ] Phase 5 — Docker & Azurite
+- [ ] Phase 6 — Azure provider
+- [ ] Phase 7 — Search, preview & polish
 
 ## Getting started
 
-_TODO: build/run instructions go here once Phase 2 makes the app
+_TODO: build/run instructions go here once Phase 3 makes the app
 actually runnable._
 
 ## Legacy code
