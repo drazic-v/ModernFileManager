@@ -28,6 +28,16 @@ public abstract class ViewModelBase : ReactiveObject
         set => this.RaiseAndSetIfChanged(ref _selectedItem, value);
     }
 
+    public bool ShowHiddenItems
+    {
+        get => _showHiddenItems;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _showHiddenItems, value);
+            _ = RefreshAsync();
+        }
+    }
+
     public ReactiveCommand<Unit, Unit> NavigateUpCommand { get; }
     public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder)
