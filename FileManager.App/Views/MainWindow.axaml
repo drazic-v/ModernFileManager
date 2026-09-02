@@ -16,8 +16,10 @@
 
         <Grid Grid.Column="1" RowDefinitions="Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
             <StackPanel Orientation="Horizontal" Grid.Row="0">
-                <Button Content="Up" Command="{Binding NavigateUpCommand}" Background="{DynamicResource CardBackgroundBrush}" />
-                <Button Content="Refresh" Command="{Binding RefreshCommand}" Background="{DynamicResource CardBackgroundBrush}" />
+                <Button Content="←" Command="{Binding BackCommand}" Background="{DynamicResource CardBackgroundBrush}" />
+                <Button Content="→" Command="{Binding ForwardCommand}" Background="{DynamicResource CardBackgroundBrush}" />
+                <Button Content="↑" Command="{Binding NavigateUpCommand}" Background="{DynamicResource CardBackgroundBrush}" />
+                <Button Content="↻" Command="{Binding RefreshCommand}" Background="{DynamicResource CardBackgroundBrush}" />
                 <CheckBox Content="Show hidden" IsChecked="{Binding ShowHiddenItems}"/>
                 <TextBlock Text="{Binding CurrentFolder}" Background="{DynamicResource CardBackgroundBrush}"/>
             </StackPanel>
