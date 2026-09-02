@@ -4,6 +4,7 @@ using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO.Pipes;
 using System.Reactive;
 using System.Threading.Tasks;
 namespace FileManager.App.ViewModels;
@@ -11,6 +12,8 @@ namespace FileManager.App.ViewModels;
 public abstract class ViewModelBase : ReactiveObject
 {
     private bool _showHiddenItems;
+    private bool _canGoBack;
+    private bool _canGoForward;
     private readonly IStorageProvider _provider;
     private StoragePath _currentFolder;
     private StorageItem? _selectedItem;
@@ -41,6 +44,18 @@ public abstract class ViewModelBase : ReactiveObject
         }
     }
 
+    public bool CanGoBack
+    {
+        get => _canGoBack;
+        private set => this.RaiseAndSetIfChanged(ref _canGoBack, value);
+    }
+
+    public bool CanGoForward
+    {
+        get => _canGoForward;
+        private set => this.RaiseAndSetIfChanged(ref _canGoForward, value);
+    }
+
     public ReactiveCommand<Unit, Unit> NavigateUpCommand { get; }
     public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ReactiveCommand<Unit, Unit> BackCommand { get; }
@@ -52,8 +67,8 @@ public abstract class ViewModelBase : ReactiveObject
         _currentFolder = startingFolder;
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
-        BackCommand = ReactiveCommand.CreateFromTask(BackAsync);
-        ForwardCommand = ReactiveCommand.CreateFromTask(ForwardAsync);
+        BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));
+        ForwardCommand = ReactiveCommand.CreateFromTask(ForwardAsync, this.WhenAnyValue(x => x.CanGoForward));
         _ = LoadAsync(startingFolder);
     }
 
@@ -69,10 +84,18 @@ public abstract class ViewModelBase : ReactiveObject
         }
         CurrentFolder = folder;
     }
+
+    private void UpdateNavigationState()
+    {
+        CanGoBack = _backStack.Count > 0;
+        CanGoForward = _forwardStack.Count > 0;
+    }
+
     private async Task NavigateToAsync(StoragePath folder)
     {
         _backStack.Push(CurrentFolder);
         _forwardStack.Clear();
+        UpdateNavigationState();
         await LoadAsync(folder);
     }
 
@@ -98,6 +121,7 @@ public abstract class ViewModelBase : ReactiveObject
         if (_backStack.Count == 0) return;
         _forwardStack.Push(CurrentFolder);
         var previous = _backStack.Pop();
+        UpdateNavigationState();
         await LoadAsync(previous);
     }
 
@@ -106,6 +130,7 @@ public abstract class ViewModelBase : ReactiveObject
         if (_forwardStack.Count == 0) return;
         _backStack.Push(CurrentFolder);
         var next = _forwardStack.Pop();
+        UpdateNavigationState();
         await LoadAsync(next);
     }
 }
