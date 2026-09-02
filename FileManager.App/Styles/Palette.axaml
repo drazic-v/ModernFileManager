@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Raw Colors -->
+    <Color x:Key="AppBackgroundRaw">#0F172A</Color>      <!-- Deep Slate Dark Blue -->
+    <Color x:Key="SurfaceBackgroundRaw">#1E293B</Color>  <!-- Slightly lighter blue-grey for panels -->
+    <Color x:Key="CardBackgroundRaw">#334155</Color>     <!-- Lighter blue for items, inputs, cards -->
+    <Color x:Key="AccentBlueRaw">#0EA5E9</Color>         <!-- Vibrant Sky Blue for highlights/active -->
+    <Color x:Key="AccentBlueHoverRaw">#38BDF8</Color>    <!-- Hover Blue -->
+    <Color x:Key="TextPrimaryRaw">#F8FAFC</Color>        <!-- Crisp White for main text -->
+    <Color x:Key="TextSecondaryRaw">#94A3B8</Color>      <!-- Muted Light Blue-Grey for secondary text -->
+
+    <!-- Solid Color Brushes -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackgroundRaw}"/>
+    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="{StaticResource SurfaceBackgroundRaw}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundRaw}"/>
+    
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlueRaw}"/>
+    <SolidColorBrush x:Key="AccentBlueHoverBrush" Color="{StaticResource AccentBlueHoverRaw}"/>
+    
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryRaw}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryRaw}"/>
+
+    <SolidColorBrush x:Key="BorderLightBrush" Color="#475569"/>
+
+</ResourceDictionary>
