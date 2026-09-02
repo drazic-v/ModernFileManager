@@ -29,12 +29,14 @@ public abstract class ViewModelBase : ReactiveObject
     }
 
     public ReactiveCommand<Unit, Unit> NavigateUpCommand { get; }
+    public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder)
     {
         _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
+        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         _ = LoadAsync(startingFolder);
     }
 
@@ -61,5 +63,10 @@ public abstract class ViewModelBase : ReactiveObject
     {
         if (CurrentFolder.Parent() is { } parent)
             await LoadAsync(parent);
+    }
+
+    public async Task RefreshAsync()
+    {
+        await LoadAsync(CurrentFolder);
     }
 }

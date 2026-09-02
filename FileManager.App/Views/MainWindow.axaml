@@ -17,6 +17,7 @@
         <Grid Grid.Column="1" RowDefinitions="Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
             <StackPanel Orientation="Horizontal" Grid.Row="0">
                 <Button Content="Up" Command="{Binding NavigateUpCommand}" Background="{DynamicResource CardBackgroundBrush}" />
+                <Button Content="Refresh" Command="{Binding RefreshCommand}" Background="{DynamicResource CardBackgroundBrush}" />
                 <TextBlock Text="{Binding CurrentFolder}" Background="{DynamicResource CardBackgroundBrush}"/>
             </StackPanel>
 
@@ -24,7 +25,6 @@
                  ItemsSource="{Binding Items}"
                  SelectedItem="{Binding SelectedItem}"
                  DoubleTapped="OnItemDoubleTapped"
-                 Grid.Column="1"
                  AutoGenerateColumns="False"
                  IsReadOnly="True">
                 <DataGrid.Columns>
