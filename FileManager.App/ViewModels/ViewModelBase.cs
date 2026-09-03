@@ -78,6 +78,7 @@ public abstract class ViewModelBase : ReactiveObject
     public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ReactiveCommand<Unit, Unit> BackCommand { get; }
     public ReactiveCommand<Unit, Unit> ForwardCommand { get; }
+    public ReactiveCommand<Unit, Unit> ClearSearchCommand { get; }
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder)
     {
         _showHiddenItems = false;
@@ -87,6 +88,7 @@ public abstract class ViewModelBase : ReactiveObject
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));
         ForwardCommand = ReactiveCommand.CreateFromTask(ForwardAsync, this.WhenAnyValue(x => x.CanGoForward));
+        ClearSearchCommand = ReactiveCommand.CreateFromTask(ClearSearchAsync);
         _ = LoadAsync(startingFolder);
     }
 
@@ -170,5 +172,11 @@ public abstract class ViewModelBase : ReactiveObject
             }
         }
         IsSearchActive = true;
+    }
+
+    public async Task ClearSearchAsync()
+    {
+        SearchText = string.Empty;
+        await LoadAsync(CurrentFolder);
     }
 }
