@@ -92,15 +92,29 @@ public abstract class ViewModelBase : ReactiveObject
         _ = LoadAsync(startingFolder);
     }
 
+    private CancellationToken BeginNewOperation()
+    {
+        _currentOperationCts?.Cancel();
+        _currentOperationCts?.Dispose();
+        _currentOperationCts = new CancellationTokenSource();
+        return _currentOperationCts.Token;
+    }
+
     private async Task LoadAsync(StoragePath folder)
     {
+        var token = BeginNewOperation();
         Items.Clear();
-        await foreach (var item in _provider.ListAsync(folder))
+        try
         {
-            if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+            await foreach (var item in _provider.ListAsync(folder, token))
             {
-                Items.Add(item);
+                if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+                    Items.Add(item);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            return; // something newer superseded this call — let that one finish instead
         }
         CurrentFolder = folder;
         IsSearchActive = false;
@@ -163,15 +177,26 @@ public abstract class ViewModelBase : ReactiveObject
             return;
         }
 
+        var token = BeginNewOperation();
         Items.Clear();
-        await foreach(var item in _provider.SearchAsync(CurrentFolder, query))
+
+        IsSearchActive = true;
+        try
         {
-            if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+
+            await foreach (var item in _provider.SearchAsync(CurrentFolder, query, token))
             {
-                Items.Add(item);
+                if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+                {
+                    Items.Add(item);
+                }
             }
         }
-        IsSearchActive = true;
+        catch (OperationCanceledException)
+        {
+
+            throw;
+        }
     }
 
     public async Task ClearSearchAsync()
