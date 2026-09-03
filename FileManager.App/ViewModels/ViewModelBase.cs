@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO.Pipes;
 using System.Reactive;
+using System.Threading;
 using System.Threading.Tasks;
 namespace FileManager.App.ViewModels;
 
@@ -13,7 +14,12 @@ public abstract class ViewModelBase : ReactiveObject
 {
     private bool _showHiddenItems;
     private bool _canGoBack;
+    private bool _isSearchActive;
+
     private bool _canGoForward;
+    private string _searchText = string.Empty;
+    private CancellationTokenSource? _currentOperationCts;
+
     private readonly IStorageProvider _provider;
     private StoragePath _currentFolder;
     private StorageItem? _selectedItem;
@@ -56,6 +62,18 @@ public abstract class ViewModelBase : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref _canGoForward, value);
     }
 
+    public string SearchText
+    {
+        get => _searchText;
+        set => this.RaiseAndSetIfChanged(ref _searchText, value);
+    }
+
+    public bool IsSearchActive
+    {
+        get => _isSearchActive;
+        private set => this.RaiseAndSetIfChanged(ref _isSearchActive, value);
+    }
+
     public ReactiveCommand<Unit, Unit> NavigateUpCommand { get; }
     public ReactiveCommand<Unit, Unit> RefreshCommand { get; }
     public ReactiveCommand<Unit, Unit> BackCommand { get; }
@@ -83,6 +101,7 @@ public abstract class ViewModelBase : ReactiveObject
             }
         }
         CurrentFolder = folder;
+        IsSearchActive = false;
     }
 
     private void UpdateNavigationState()
@@ -132,5 +151,24 @@ public abstract class ViewModelBase : ReactiveObject
         var next = _forwardStack.Pop();
         UpdateNavigationState();
         await LoadAsync(next);
+    }
+
+    public async Task SearchCurrentFolderAsync(string query)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            await LoadAsync(CurrentFolder); // empty box = just show the folder again
+            return;
+        }
+
+        Items.Clear();
+        await foreach(var item in _provider.SearchAsync(CurrentFolder, query))
+        {
+            if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
+            {
+                Items.Add(item);
+            }
+        }
+        IsSearchActive = true;
     }
 }

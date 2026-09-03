@@ -17,4 +17,10 @@ public partial class MainWindow : Window
         if (DataContext is ViewModelBase vm && vm.SelectedItem is { } item)
             await vm.NavigateIntoAsync(item);
     }
+
+    private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && DataContext is MainViewModel vm)
+            await vm.SearchCurrentFolderAsync(vm.SearchText);
+    }
 }

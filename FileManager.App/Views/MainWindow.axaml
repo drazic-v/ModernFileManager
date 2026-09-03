@@ -28,6 +28,8 @@
                         VerticalAlignment="Center">
                     <TextBlock Text="{Binding CurrentFolder}"/>
                 </Border>
+                <TextBox Watermark="Search this folder..." Text="{Binding SearchText}" Width="180" KeyDown="OnSearchKeyDown"/>
+
             </StackPanel>
 
             <DataGrid Grid.Row="1" Background="{DynamicResource SurfaceBackgroundBrush}"
