@@ -14,7 +14,7 @@ namespace FileManager.Infrastructure.Tests.Providers
     public partial class LocalStorageProviderTests : StorageProviderContractTests
     {
         private string _tempDir = null!;
-        private LocalStorageProvider _provider = null!;
+        private LocalStorageProvider _provider => (LocalStorageProvider)Provider;
 
         protected override Task<(IStorageProvider, StoragePath)> CreateProviderAsync()
         {
