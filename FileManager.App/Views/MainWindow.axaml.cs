@@ -20,7 +20,7 @@ public partial class MainWindow : Window
 
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && DataContext is MainViewModel vm)
+        if (e.Key == Key.Enter && DataContext is ViewModelBase vm)
             await vm.SearchCurrentFolderAsync(vm.SearchText);
     }
 }

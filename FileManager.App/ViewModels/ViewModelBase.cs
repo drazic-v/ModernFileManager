@@ -1,4 +1,5 @@
-﻿using FileManager.Core.Models;
+﻿using Avalonia.Threading;
+using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using ReactiveUI;
 using System;
@@ -173,29 +174,30 @@ public abstract class ViewModelBase : ReactiveObject
     {
         if (string.IsNullOrEmpty(query))
         {
-            await LoadAsync(CurrentFolder); // empty box = just show the folder again
+            await LoadAsync(CurrentFolder);
             return;
         }
 
         var token = BeginNewOperation();
         Items.Clear();
-
         IsSearchActive = true;
+        await Dispatcher.Yield(DispatcherPriority.Background); // let the Cancel button actually paint before the heavy work starts
+
+        var count = 0;
         try
         {
-
             await foreach (var item in _provider.SearchAsync(CurrentFolder, query, token))
             {
                 if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
-                {
                     Items.Add(item);
-                }
+
+                if (++count % 25 == 0)
+                    await Dispatcher.Yield(DispatcherPriority.Background);
             }
         }
         catch (OperationCanceledException)
         {
-
-            throw;
+            return;
         }
     }
 
