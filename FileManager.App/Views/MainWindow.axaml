@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="576"
         x:Class="FileManager.App.Views.MainWindow"
-        x:DataType="vm:MainViewModel"
+        x:DataType="vm:WorkspaceViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="FileManager.App"
         Background="{DynamicResource AppBackgroundBrush}">
@@ -16,25 +16,25 @@
 
         <Grid Grid.Column="1" RowDefinitions="Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
             <StackPanel Orientation="Horizontal" Grid.Row="0">
-                <Button Content="←" Command="{Binding BackCommand}" />
-                <Button Content="→" Command="{Binding ForwardCommand}" />
-                <Button Content="↑" Command="{Binding NavigateUpCommand}" />
-                <Button Content="↻" Command="{Binding RefreshCommand}" />
-                <CheckBox Content="Show hidden" IsChecked="{Binding ShowHiddenItems}"/>
+                <Button Content="←" Command="{Binding SelectedTab.BackCommand}" />
+                <Button Content="→" Command="{Binding SelectedTab.ForwardCommand}" />
+                <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />
+                <Button Content="↻" Command="{Binding SelectedTab.RefreshCommand}" />
+                <CheckBox Content="Show hidden" IsChecked="{Binding SelectedTab.ShowHiddenItems}"/>
                 <Border Background="{DynamicResource CardBackgroundBrush}"
                         CornerRadius="6"
                         Padding="10,4"
                         Margin="8,0"
                         VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CurrentFolder}"/>
+                    <TextBlock Text="{Binding SelectedTab.CurrentFolder}"/>
                 </Border>
-                <TextBox PlaceholderText="Search this folder..." Text="{Binding SearchText}" Width="180" KeyDown="OnSearchKeyDown"/>
-                <Button Content="✕" Command="{Binding ClearSearchCommand}" IsVisible="{Binding IsSearchActive}"/>
+                <TextBox PlaceholderText="Search this folder..." Text="{Binding SelectedTab.SearchText}" Width="180" KeyDown="OnSearchKeyDown"/>
+                <Button Content="✕" Command="{Binding SelectedTab.ClearSearchCommand}" IsVisible="{Binding SelectedTab.IsSearchActive}"/>
             </StackPanel>
 
             <DataGrid Grid.Row="1" Background="{DynamicResource SurfaceBackgroundBrush}"
-                 ItemsSource="{Binding Items}"
-                 SelectedItem="{Binding SelectedItem}"
+                 ItemsSource="{Binding SelectedTab.Items}"
+                 SelectedItem="{Binding SelectedTab.SelectedItem}"
                  DoubleTapped="OnItemDoubleTapped"
                  AutoGenerateColumns="False"
                  IsReadOnly="True">

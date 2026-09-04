@@ -14,13 +14,13 @@ public partial class MainWindow : Window
 
     private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (DataContext is ViewModelBase vm && vm.SelectedItem is { } item)
-            await vm.NavigateIntoAsync(item);
+        if (DataContext is WorkspaceViewModel vm && vm.SelectedTab.SelectedItem is { } item)
+            await vm.SelectedTab.NavigateIntoAsync(item);
     }
 
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && DataContext is ViewModelBase vm)
-            await vm.SearchCurrentFolderAsync(vm.SearchText);
+        if (e.Key == Key.Enter && DataContext is WorkspaceViewModel vm)
+            await vm.SelectedTab.SearchCurrentFolderAsync(vm.SelectedTab.SearchText);
     }
 }

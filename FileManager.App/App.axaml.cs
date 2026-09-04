@@ -23,7 +23,7 @@ public partial class App : Application
             var provider = new LocalStorageProvider();
             var home =  Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
             var startingFolder = new StoragePath { ProviderId = provider.ProviderId, Value = home };
-            desktop.MainWindow = new MainWindow { DataContext = new MainViewModel(provider, startingFolder) };
+            desktop.MainWindow = new MainWindow { DataContext = new WorkspaceViewModel(provider, startingFolder) };
         }
         base.OnFrameworkInitializationCompleted();
     }
