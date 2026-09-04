@@ -14,8 +14,33 @@
         <Border Grid.Column="0">
         </Border>
 
-        <Grid Grid.Column="1" RowDefinitions="Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
-            <StackPanel Orientation="Horizontal" Grid.Row="0">
+        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Background="{DynamicResource SurfaceBackgroundBrush}">
+                <ListBox ItemsSource="{Binding Tabs}"
+                         SelectedItem="{Binding SelectedTab}"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,4">
+                                <TextBlock Text="{Binding TabName}"/>
+                                <Button Content="✕"
+                                Command="{Binding $parent[Window].DataContext.CloseTabCommand}"
+                                CommandParameter="{Binding}"
+                                IsVisible="{Binding $parent[Window].DataContext.CanCloseTabs}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Button Content="+" Command="{Binding AddTabCommand}"/>
+            </StackPanel>
+            
+            <StackPanel Orientation="Horizontal" Grid.Row="1">
                 <Button Content="←" Command="{Binding SelectedTab.BackCommand}" />
                 <Button Content="→" Command="{Binding SelectedTab.ForwardCommand}" />
                 <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />
@@ -32,7 +57,7 @@
                 <Button Content="✕" Command="{Binding SelectedTab.ClearSearchCommand}" IsVisible="{Binding SelectedTab.IsSearchActive}"/>
             </StackPanel>
 
-            <DataGrid Grid.Row="1" Background="{DynamicResource SurfaceBackgroundBrush}"
+            <DataGrid Grid.Row="2" Background="{DynamicResource SurfaceBackgroundBrush}"
                  ItemsSource="{Binding SelectedTab.Items}"
                  SelectedItem="{Binding SelectedTab.SelectedItem}"
                  DoubleTapped="OnItemDoubleTapped"

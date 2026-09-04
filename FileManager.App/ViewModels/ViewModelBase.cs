@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO.Pipes;
 using System.Reactive;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 namespace FileManager.App.ViewModels;
@@ -28,6 +29,9 @@ public abstract class ViewModelBase : ReactiveObject
     private readonly Stack<StoragePath> _forwardStack = new();
 
     public ObservableCollection<StorageItem> Items { get; } = new();
+
+    private readonly ObservableAsPropertyHelper<string> _tabName;
+    public string TabName => _tabName.Value;
 
     public StoragePath CurrentFolder
     {
@@ -85,6 +89,7 @@ public abstract class ViewModelBase : ReactiveObject
         _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
+        _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_provider.ProviderId}: {folder.Name}").ToProperty(this, x => x.TabName);
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));

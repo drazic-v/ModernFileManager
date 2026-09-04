@@ -13,6 +13,14 @@ public class WorkspaceViewModel : ReactiveObject
     private readonly StoragePath _defaultStartingFolder;
     private MainViewModel? _selectedTab;
 
+    private bool _canCloseTabs;
+
+    public bool CanCloseTabs
+    {
+        get => _canCloseTabs;
+        private set => this.RaiseAndSetIfChanged(ref _canCloseTabs, value);
+    }
+
     public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder)
     {
         _provider = provider;
@@ -30,6 +38,9 @@ public class WorkspaceViewModel : ReactiveObject
 
     public ObservableCollection<MainViewModel> Tabs { get; }
 
+    private void UpdateCanCloseTabs() => CanCloseTabs = Tabs.Count > 1;
+
+
     public MainViewModel? SelectedTab
     {
         get => _selectedTab;
@@ -44,6 +55,7 @@ public class WorkspaceViewModel : ReactiveObject
         var tab = new MainViewModel(_provider, _defaultStartingFolder);
         Tabs.Add(tab);
         SelectedTab = tab;
+        UpdateCanCloseTabs();
     }
 
     private void CloseTab(MainViewModel tab)
@@ -52,10 +64,11 @@ public class WorkspaceViewModel : ReactiveObject
         if (index < 0) return;
 
         Tabs.Remove(tab);
+        UpdateCanCloseTabs();
 
         if (Tabs.Count == 0)
         {
-            AddTab(); // never let the workspace end up with zero tabs
+            AddTab(); // never let the workspace end up with zero tabs, safety net only — the UI won't let this actually happen
             return;
         }
 
