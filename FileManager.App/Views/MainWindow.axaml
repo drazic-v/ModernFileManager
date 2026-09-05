@@ -13,6 +13,7 @@
 
     <Window.Resources>
         <conv:BytesToSizeConverter x:Key="BytesToSizeConverter"/>
+        <conv:ItemKindVisibilityConverter x:Key="ItemKindVisibility"/>
     </Window.Resources>
 
     <Grid ColumnDefinitions="220,*, Auto">
@@ -81,12 +82,25 @@
            Padding="14"
            Width="240">
            <StackPanel Spacing="8">
-               <TextBlock Text="{Binding SelectedTab.SelectedItem.Name, FallbackValue='No item selected'}"
-                          FontWeight="Bold" TextWrapping="Wrap"/>
-               <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
-               <TextBlock Text="{Binding SelectedTab.SelectedItem.SizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Size: {0}'}"/>
-               <TextBlock Text="{Binding SelectedTab.SelectedItem.LastModifiedUtc, StringFormat='Modified: {0:g}'}"/>
-           </StackPanel>
+                <TextBlock Text="{Binding SelectedTab.SelectedItem.Name, FallbackValue='No item selected'}"
+                           FontWeight="Bold" TextWrapping="Wrap"/>
+
+                <StackPanel Spacing="8"
+                            IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=File}">
+                    <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
+                    <TextBlock Text="{Binding SelectedTab.SelectedItem.SizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Size: {0}'}"/>
+                    <TextBlock Text="{Binding SelectedTab.SelectedItem.LastModifiedUtc, StringFormat='Modified: {0:g}'}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8"
+                            IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=Directory}">
+                    <TextBlock Text="Calculating..." IsVisible="{Binding SelectedTab.IsFolderInfoLoading}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding SelectedTab.FolderSizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Total size: {0}'}"/>
+                    <TextBlock Text="{Binding SelectedTab.FolderFileCount, StringFormat='Files: {0}'}"/>
+                    <TextBlock Text="{Binding SelectedTab.FolderFolderCount, StringFormat='Folders: {0}'}"/>
+                </StackPanel>
+            </StackPanel>
         </Border>
     </Grid>
 

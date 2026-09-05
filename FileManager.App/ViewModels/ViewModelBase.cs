@@ -33,6 +33,29 @@ public abstract class ViewModelBase : ReactiveObject
     private readonly ObservableAsPropertyHelper<string> _tabName;
     public string TabName => _tabName.Value;
 
+    private long? _folderSizeInBytes;
+    private int? _folderFileCount;
+    private int? _folderFolderCount;
+    private bool _isFolderInfoLoading;
+    private CancellationTokenSource? _folderInfoCts;
+
+    public long? FolderSizeInBytes { get => _folderSizeInBytes; private set => this.RaiseAndSetIfChanged(ref _folderSizeInBytes, value); }
+    public int? FolderFileCount { get => _folderFileCount; private set => this.RaiseAndSetIfChanged(ref _folderFileCount, value); }
+    public int? FolderFolderCount { get => _folderFolderCount; private set => this.RaiseAndSetIfChanged(ref _folderFolderCount, value); }
+    public bool IsFolderInfoLoading { get => _isFolderInfoLoading; private set => this.RaiseAndSetIfChanged(ref _isFolderInfoLoading, value); }
+
+    private bool _isDetailsPanelOpen = true;
+
+    public bool IsDetailsPanelOpen
+    {
+        get => _isDetailsPanelOpen;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isDetailsPanelOpen, value);
+            _ = UpdateFolderInfoAsync();
+        }
+    }
+
     public StoragePath CurrentFolder
     {
         get => _currentFolder;
@@ -42,7 +65,11 @@ public abstract class ViewModelBase : ReactiveObject
     public StorageItem? SelectedItem
     {
         get => _selectedItem;
-        set => this.RaiseAndSetIfChanged(ref _selectedItem, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _selectedItem, value);
+            _ = UpdateFolderInfoAsync();
+        }
     }
 
     public bool ShowHiddenItems
@@ -110,6 +137,7 @@ public abstract class ViewModelBase : ReactiveObject
     {
         var token = BeginNewOperation();
         Items.Clear();
+        SelectedItem = null;
         try
         {
             await foreach (var item in _provider.ListAsync(folder, token))
@@ -210,5 +238,46 @@ public abstract class ViewModelBase : ReactiveObject
     {
         SearchText = string.Empty;
         await LoadAsync(CurrentFolder);
+    }
+
+    private async Task UpdateFolderInfoAsync()
+    {
+        _folderInfoCts?.Cancel();
+        _folderInfoCts?.Dispose();
+        _folderInfoCts = null;
+
+        FolderSizeInBytes = null;
+        FolderFileCount = null;
+        FolderFolderCount = null;
+
+        if (!IsDetailsPanelOpen || SelectedItem is not { Kind: StorageItemKind.Directory } folder)
+            return;
+
+        _folderInfoCts = new CancellationTokenSource();
+        var token = _folderInfoCts.Token;
+        IsFolderInfoLoading = true;
+
+        var progress = new Progress<FolderInfoCalculator.FolderInfo>(info =>
+        {
+            FolderSizeInBytes = info.Size;
+            FolderFileCount = info.Files;
+            FolderFolderCount = info.Folders;
+        });
+
+        await Dispatcher.Yield(DispatcherPriority.Background); // let the Cancel button actually paint before the heavy work starts
+
+        try
+        {
+            await FolderInfoCalculator.GetFolderInfo(_provider, folder.Path, progress, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return; // a newer selection superseded this calculation
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+                IsFolderInfoLoading = false;
+        }
     }
 }

@@ -75,6 +75,7 @@ namespace FileManager.Core.Providers
                 if (accumulator.ItemsProcessed % ProgressInterval == 0)
                 {
                     progress?.Report(accumulator.ToFolderInfo());
+                    await Task.Yield(); // Yield to allow progress reporting to be processed.
                 }
             }
         }
