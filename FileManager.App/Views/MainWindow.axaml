@@ -1,6 +1,7 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:FileManager.App.ViewModels"
+        xmlns:conv="using:FileManager.App.Converters"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="576"
@@ -10,7 +11,11 @@
         Title="FileManager.App"
         Background="{DynamicResource AppBackgroundBrush}">
 
-    <Grid ColumnDefinitions="220,*">
+    <Window.Resources>
+        <conv:BytesToSizeConverter x:Key="BytesToSizeConverter"/>
+    </Window.Resources>
+
+    <Grid ColumnDefinitions="220,*, Auto">
         <Border Grid.Column="0">
         </Border>
 
@@ -71,6 +76,18 @@
             </DataGrid>
         </Grid>
 
+        <Border Grid.Column="2"
+           Background="{DynamicResource SurfaceBackgroundBrush}"
+           Padding="14"
+           Width="240">
+           <StackPanel Spacing="8">
+               <TextBlock Text="{Binding SelectedTab.SelectedItem.Name, FallbackValue='No item selected'}"
+                          FontWeight="Bold" TextWrapping="Wrap"/>
+               <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
+               <TextBlock Text="{Binding SelectedTab.SelectedItem.SizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Size: {0}'}"/>
+               <TextBlock Text="{Binding SelectedTab.SelectedItem.LastModifiedUtc, StringFormat='Modified: {0:g}'}"/>
+           </StackPanel>
+        </Border>
     </Grid>
 
 </Window>
