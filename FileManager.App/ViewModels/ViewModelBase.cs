@@ -44,7 +44,7 @@ public abstract class ViewModelBase : ReactiveObject
     public int? FolderFolderCount { get => _folderFolderCount; private set => this.RaiseAndSetIfChanged(ref _folderFolderCount, value); }
     public bool IsFolderInfoLoading { get => _isFolderInfoLoading; private set => this.RaiseAndSetIfChanged(ref _isFolderInfoLoading, value); }
 
-    private bool _isDetailsPanelOpen = true;
+    private bool _isDetailsPanelOpen = false;
 
     public bool IsDetailsPanelOpen
     {

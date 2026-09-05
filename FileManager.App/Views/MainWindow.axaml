@@ -14,6 +14,7 @@
     <Window.Resources>
         <conv:BytesToSizeConverter x:Key="BytesToSizeConverter"/>
         <conv:ItemKindVisibilityConverter x:Key="ItemKindVisibility"/>
+        <conv:BoolToWidthConverter x:Key="BoolToWidthConverter"/>
     </Window.Resources>
 
     <Grid ColumnDefinitions="220,*, Auto">
@@ -52,6 +53,7 @@
                 <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />
                 <Button Content="↻" Command="{Binding SelectedTab.RefreshCommand}" />
                 <CheckBox Content="Show hidden" IsChecked="{Binding SelectedTab.ShowHiddenItems}"/>
+                <ToggleButton Content="Details" IsChecked="{Binding SelectedTab.IsDetailsPanelOpen}"/>
                 <Border Background="{DynamicResource CardBackgroundBrush}"
                         CornerRadius="6"
                         Padding="10,4"
@@ -79,8 +81,13 @@
 
         <Border Grid.Column="2"
            Background="{DynamicResource SurfaceBackgroundBrush}"
-           Padding="14"
-           Width="240">
+           ClipToBounds="True"
+           Width="{Binding SelectedTab.IsDetailsPanelOpen, Converter={StaticResource BoolToWidthConverter}}">
+           <Border.Transitions>
+               <Transitions>
+                   <DoubleTransition Property="Width" Duration="0:0:0.18"/>
+               </Transitions>
+           </Border.Transitions>
            <StackPanel Spacing="8">
                 <TextBlock Text="{Binding SelectedTab.SelectedItem.Name, FallbackValue='No item selected'}"
                            FontWeight="Bold" TextWrapping="Wrap"/>
