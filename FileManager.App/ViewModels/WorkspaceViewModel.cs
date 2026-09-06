@@ -32,10 +32,10 @@ public class WorkspaceViewModel : ReactiveObject
             new MainViewModel(provider, startingFolder)
         };
         SelectedTab = Tabs[0];
+        UpdateCanCloseTabs();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
-        CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab);
-
+        CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab, this.WhenAnyValue(x => x.CanCloseTabs));
         // This is just a placeholder to demonstrate how the transfer progress bar works.
         // In a real application, you would add TransferViewModel instances to
         // ActiveTransfers when actual file transfers are initiated.

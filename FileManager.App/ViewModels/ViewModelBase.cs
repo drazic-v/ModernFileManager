@@ -75,6 +75,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         get => _selectedItem;
         set
         {
+            if (_selectedItem == value) return;
             this.RaiseAndSetIfChanged(ref _selectedItem, value);
             _ = UpdateFolderInfoAsync();
         }
@@ -276,7 +277,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
         try
         {
-            await FolderInfoCalculator.GetFolderInfo(_provider, folder.Path, progress, token);
+            await Task.Run(() => FolderInfoCalculator.GetFolderInfo(_provider, folder.Path, progress, token), token);
         }
         catch (OperationCanceledException)
         {
@@ -291,6 +292,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
     public void Dispose()
     {
+        _tabName.Dispose();
         _currentOperationCts?.Cancel();
         _currentOperationCts?.Dispose();
         _folderInfoCts?.Cancel();

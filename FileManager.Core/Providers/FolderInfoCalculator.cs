@@ -49,34 +49,23 @@ namespace FileManager.Core.Providers
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (item.Kind == StorageItemKind.File)
+                if (item.IsFolder)
                 {
-                    accumulator.Files++;
-
-                    if (item.SizeInBytes is { } size)
-                    {
-                        accumulator.SizeInBytes += size;
-                    }
+                    accumulator.Folders++;
+                    await CalculateSizeInBytesRecursive(provider, item.Path, accumulator, progress, ct);
                 }
                 else
                 {
-                    accumulator.Folders++;
-
-                    await CalculateSizeInBytesRecursive(
-                        provider,
-                        item.Path,
-                        accumulator,
-                        progress,
-                        ct);
+                    accumulator.Files++;
+                    if (item.SizeInBytes is { } size)
+                        accumulator.SizeInBytes += size;
                 }
 
                 accumulator.ItemsProcessed++;
 
                 if (accumulator.ItemsProcessed % ProgressInterval == 0)
-                {
                     progress?.Report(accumulator.ToFolderInfo());
-                    await Task.Yield(); // Yield to allow progress reporting to be processed.
-                }
+
             }
         }
 
