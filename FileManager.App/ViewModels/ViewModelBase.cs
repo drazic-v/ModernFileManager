@@ -56,6 +56,14 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         }
     }
 
+    private bool _isActive;
+
+    public bool IsActive
+    {
+        get => _isActive;
+        internal set => this.RaiseAndSetIfChanged(ref _isActive, value);
+    }
+
     public StoragePath CurrentFolder
     {
         get => _currentFolder;

@@ -44,7 +44,13 @@ public class WorkspaceViewModel : ReactiveObject
     public MainViewModel? SelectedTab
     {
         get => _selectedTab;
-        set => this.RaiseAndSetIfChanged(ref _selectedTab, value);
+        set
+        {
+            if (_selectedTab == value) return;
+            if (_selectedTab is not null) _selectedTab.IsActive = false;
+            this.RaiseAndSetIfChanged(ref _selectedTab, value);
+            if (_selectedTab is not null) _selectedTab.IsActive = true;
+        }
     }
 
     public ReactiveCommand<Unit, Unit> AddTabCommand { get; }
