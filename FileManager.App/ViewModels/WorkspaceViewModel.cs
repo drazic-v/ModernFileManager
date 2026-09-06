@@ -64,6 +64,7 @@ public class WorkspaceViewModel : ReactiveObject
         if (index < 0) return;
 
         Tabs.Remove(tab);
+        tab.Dispose();
         UpdateCanCloseTabs();
 
         if (Tabs.Count == 0)

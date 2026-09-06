@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 namespace FileManager.App.ViewModels;
 
-public abstract class ViewModelBase : ReactiveObject
+public abstract class ViewModelBase : ReactiveObject, IDisposable
 {
     private bool _showHiddenItems;
     private bool _canGoBack;
@@ -279,5 +279,13 @@ public abstract class ViewModelBase : ReactiveObject
             if (!token.IsCancellationRequested)
                 IsFolderInfoLoading = false;
         }
+    }
+
+    public void Dispose()
+    {
+        _currentOperationCts?.Cancel();
+        _currentOperationCts?.Dispose();
+        _folderInfoCts?.Cancel();
+        _folderInfoCts?.Dispose();
     }
 }
