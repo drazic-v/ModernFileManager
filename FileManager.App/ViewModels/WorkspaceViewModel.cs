@@ -12,6 +12,7 @@ public class WorkspaceViewModel : ReactiveObject
     private readonly IStorageProvider _provider;
     private readonly StoragePath _defaultStartingFolder;
     private MainViewModel? _selectedTab;
+    public ObservableCollection<TransferViewModel> ActiveTransfers { get; } = new();
 
     private bool _canCloseTabs;
 
@@ -34,6 +35,11 @@ public class WorkspaceViewModel : ReactiveObject
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
         CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab);
+
+        // This is just a placeholder to demonstrate how the transfer progress bar works.
+        // In a real application, you would add TransferViewModel instances to
+        // ActiveTransfers when actual file transfers are initiated.
+        //ActiveTransfers.Add(new TransferViewModel("example.zip") { ProgressPercent = 42 });
     }
 
     public ObservableCollection<MainViewModel> Tabs { get; }

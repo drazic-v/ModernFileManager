@@ -15,13 +15,14 @@
         <conv:BytesToSizeConverter x:Key="BytesToSizeConverter"/>
         <conv:ItemKindVisibilityConverter x:Key="ItemKindVisibility"/>
         <conv:BoolToWidthConverter x:Key="BoolToWidthConverter"/>
+        <conv:GreaterThanZeroConverter x:Key="GreaterThanZero"/>
     </Window.Resources>
 
     <Grid ColumnDefinitions="220,*, Auto">
         <Border Grid.Column="0">
         </Border>
 
-        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *" Background="{DynamicResource SurfaceBackgroundBrush}">
+        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *, Auto, Auto" Background="{DynamicResource SurfaceBackgroundBrush}">
             <StackPanel Grid.Row="0" Orientation="Horizontal" Background="{DynamicResource SurfaceBackgroundBrush}">
                 <ListBox ItemsSource="{Binding Tabs}"
                          SelectedItem="{Binding SelectedTab}"
@@ -89,6 +90,33 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <Border Grid.Row="3" Padding="8,4"
+                    Background="{DynamicResource SurfaceBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderLightBrush}"
+                    BorderThickness="0,1,0,0"
+                    IsVisible="{Binding ActiveTransfers.Count, Converter={StaticResource GreaterThanZero}}">
+                <ItemsControl ItemsSource="{Binding ActiveTransfers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                <TextBlock Text="{Binding Name}" Width="200"/>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" Width="150"/>
+                                <TextBlock Text="{Binding ProgressPercent, StringFormat='{}{0:0}%'}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <Border Grid.Row="4" Padding="8,4"
+                    Background="{DynamicResource SurfaceBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderLightBrush}"
+                    BorderThickness="0,1,0,0">
+                <TextBlock Text="{Binding Tabs.Count, StringFormat='{}{0} tab(s) open'}"
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
+            </Border>
+
         </Grid>
 
         <Border Grid.Column="2"
