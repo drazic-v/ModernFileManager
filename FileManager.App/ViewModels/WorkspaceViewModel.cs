@@ -12,26 +12,20 @@ public class WorkspaceViewModel : ReactiveObject
     private MainViewModel? _selectedTab;
     public ObservableCollection<TransferViewModel> ActiveTransfers { get; } = new();
 
-    private bool _canCloseTabs;
-
-    public bool CanCloseTabs
-    {
-        get => _canCloseTabs;
-        private set => this.RaiseAndSetIfChanged(ref _canCloseTabs, value);
-    }
-
     public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
 
-        Tabs = new ObservableCollection<MainViewModel>
-        {
-            new MainViewModel(provider, startingFolder, displayName)
-        };
-        SelectedTab = Tabs[0];
-        UpdateCanCloseTabs();
+        //Tabs = new ObservableCollection<MainViewModel>
+        //{
+        //    new MainViewModel(provider, startingFolder, displayName)
+        //};
+        Tabs = new ObservableCollection<MainViewModel>();
+
+        //SelectedTab = Tabs[0];
+        //UpdateCanCloseTabs();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
-        CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab, this.WhenAnyValue(x => x.CanCloseTabs));
+        CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab);
         // This is just a placeholder to demonstrate how the transfer progress bar works.
         // In a real application, you would add TransferViewModel instances to
         // ActiveTransfers when actual file transfers are initiated.
@@ -45,9 +39,6 @@ public class WorkspaceViewModel : ReactiveObject
     public ObservableCollection<MainViewModel> Tabs { get; }
 
     public ObservableCollection<ProviderViewModel> Providers { get; } = new();
-
-    private void UpdateCanCloseTabs() => CanCloseTabs = Tabs.Count > 1;
-
 
     public MainViewModel? SelectedTab
     {
@@ -80,7 +71,6 @@ public class WorkspaceViewModel : ReactiveObject
         var tab = new MainViewModel(provider, startingFolder, displayName);
         Tabs.Add(tab);
         SelectedTab = tab;
-        UpdateCanCloseTabs();
     }
 
     private void CloseTab(MainViewModel tab)
@@ -88,17 +78,12 @@ public class WorkspaceViewModel : ReactiveObject
         var index = Tabs.IndexOf(tab);
         if (index < 0) return;
 
+        var wasSelected = SelectedTab == tab;
+
         Tabs.Remove(tab);
         tab.Dispose();
-        UpdateCanCloseTabs();
 
-        if (Tabs.Count == 0)
-        {
-            AddTab(); // never let the workspace end up with zero tabs, safety net only — the UI won't let this actually happen
-            return;
-        }
-
-        if (SelectedTab == tab)
-            SelectedTab = Tabs[Math.Max(0, index - 1)];
+        if (wasSelected)
+            SelectedTab = Tabs.Count > 0 ? Tabs[Math.Max(0, index - 1)] : null;
     }
 }
