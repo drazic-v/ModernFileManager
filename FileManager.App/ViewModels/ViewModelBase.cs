@@ -19,6 +19,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     private bool _isSearchActive;
 
     private bool _canGoForward;
+    private readonly string _displayName;
     private string _searchText = string.Empty;
     private CancellationTokenSource? _currentOperationCts;
 
@@ -30,6 +31,8 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
     public ObservableCollection<StorageItem> Items { get; } = new();
 
+    public IStorageProvider Provider => _provider;
+    public string DisplayName => _displayName;
     private readonly ObservableAsPropertyHelper<string> _tabName;
     public string TabName => _tabName.Value;
 
@@ -120,12 +123,13 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> BackCommand { get; }
     public ReactiveCommand<Unit, Unit> ForwardCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearSearchCommand { get; }
-    public ViewModelBase(IStorageProvider provider, StoragePath startingFolder)
+    public ViewModelBase(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
         _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
-        _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_provider.ProviderId}: {folder.Name}").ToProperty(this, x => x.TabName);
+        _displayName = displayName;
+        _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_displayName}: {folder.Name}").ToProperty(this, x => x.TabName);
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));

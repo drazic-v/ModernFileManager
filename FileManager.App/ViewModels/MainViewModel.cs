@@ -7,6 +7,6 @@ namespace FileManager.App.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
-    public MainViewModel(IStorageProvider provider, StoragePath startingFolder) 
-        : base(provider, startingFolder) { }
+    public MainViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName) 
+        : base(provider, startingFolder, displayName) { }
 }

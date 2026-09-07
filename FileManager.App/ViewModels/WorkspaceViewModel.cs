@@ -9,8 +9,6 @@ namespace FileManager.App.ViewModels;
 
 public class WorkspaceViewModel : ReactiveObject
 {
-    private readonly IStorageProvider _provider;
-    private readonly StoragePath _defaultStartingFolder;
     private MainViewModel? _selectedTab;
     public ObservableCollection<TransferViewModel> ActiveTransfers { get; } = new();
 
@@ -22,14 +20,12 @@ public class WorkspaceViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref _canCloseTabs, value);
     }
 
-    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder)
+    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
-        _provider = provider;
-        _defaultStartingFolder = startingFolder;
 
         Tabs = new ObservableCollection<MainViewModel>
         {
-            new MainViewModel(provider, startingFolder)
+            new MainViewModel(provider, startingFolder, displayName)
         };
         SelectedTab = Tabs[0];
         UpdateCanCloseTabs();
@@ -41,8 +37,8 @@ public class WorkspaceViewModel : ReactiveObject
         // ActiveTransfers when actual file transfers are initiated.
         //ActiveTransfers.Add(new TransferViewModel("example.zip") { ProgressPercent = 42 });
 
-        Providers.Add(new ProviderViewModel(provider.ProviderId, provider, startingFolder));
-        OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder));
+        Providers.Add(new ProviderViewModel(displayName, provider, startingFolder));
+        OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder, entry.DisplayName));
         AddProviderCommand = ReactiveCommand.Create(() => { /* TODO: open a connect-provider window once a second provider type exists */ });
     }
 
@@ -72,11 +68,16 @@ public class WorkspaceViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> AddProviderCommand { get; }
 
 
-    private void AddTab() => OpenTab(_provider, _defaultStartingFolder);
-
-    private void OpenTab(IStorageProvider provider, StoragePath startingFolder)
+    private void AddTab()
     {
-        var tab = new MainViewModel(provider, startingFolder);
+        if (SelectedTab is { } current)
+            OpenTab(current.Provider, current.CurrentFolder, current.DisplayName);
+        else
+            OpenTab(Providers[0].Provider, Providers[0].StartingFolder, Providers[0].DisplayName);
+    }
+    private void OpenTab(IStorageProvider provider, StoragePath startingFolder, string displayName)
+    {
+        var tab = new MainViewModel(provider, startingFolder, displayName);
         Tabs.Add(tab);
         SelectedTab = tab;
         UpdateCanCloseTabs();
