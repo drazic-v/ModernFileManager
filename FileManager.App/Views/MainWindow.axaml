@@ -19,7 +19,27 @@
     </Window.Resources>
 
     <Grid ColumnDefinitions="220,*, Auto">
-        <Border Grid.Column="0">
+        <Border Grid.Column="0" Background="{DynamicResource SurfaceBackgroundBrush}" Padding="12">
+            <StackPanel Spacing="6">
+                <TextBlock Text="PROVIDERS" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                <ItemsControl ItemsSource="{Binding Providers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding DisplayName}"
+                                    Command="{Binding $parent[Window].DataContext.OpenProviderCommand}"
+                                    CommandParameter="{Binding}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button Content="+ Add Provider" Command="{Binding AddProviderCommand}" 
+                        IsEnabled="False"
+                        ToolTip.Tip="Cloud providers aren't wired up yet"   
+                        HorizontalAlignment="Stretch"/>
+            </StackPanel>
         </Border>
 
         <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *, Auto, Auto" Background="{DynamicResource SurfaceBackgroundBrush}">

@@ -40,9 +40,15 @@ public class WorkspaceViewModel : ReactiveObject
         // In a real application, you would add TransferViewModel instances to
         // ActiveTransfers when actual file transfers are initiated.
         //ActiveTransfers.Add(new TransferViewModel("example.zip") { ProgressPercent = 42 });
+
+        Providers.Add(new ProviderViewModel(provider.ProviderId, provider, startingFolder));
+        OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder));
+        AddProviderCommand = ReactiveCommand.Create(() => { /* TODO: open a connect-provider window once a second provider type exists */ });
     }
 
     public ObservableCollection<MainViewModel> Tabs { get; }
+
+    public ObservableCollection<ProviderViewModel> Providers { get; } = new();
 
     private void UpdateCanCloseTabs() => CanCloseTabs = Tabs.Count > 1;
 
@@ -62,9 +68,15 @@ public class WorkspaceViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> AddTabCommand { get; }
     public ReactiveCommand<MainViewModel, Unit> CloseTabCommand { get; }
 
-    private void AddTab()
+    public ReactiveCommand<ProviderViewModel, Unit> OpenProviderCommand { get; }
+    public ReactiveCommand<Unit, Unit> AddProviderCommand { get; }
+
+
+    private void AddTab() => OpenTab(_provider, _defaultStartingFolder);
+
+    private void OpenTab(IStorageProvider provider, StoragePath startingFolder)
     {
-        var tab = new MainViewModel(_provider, _defaultStartingFolder);
+        var tab = new MainViewModel(provider, startingFolder);
         Tabs.Add(tab);
         SelectedTab = tab;
         UpdateCanCloseTabs();
