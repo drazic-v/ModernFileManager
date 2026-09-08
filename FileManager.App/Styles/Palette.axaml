@@ -19,6 +19,7 @@
     
     <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlueRaw}"/>
     <SolidColorBrush x:Key="AccentBlueHoverBrush" Color="{StaticResource AccentBlueHoverRaw}"/>
+    <SolidColorBrush x:Key="AccentBlueMutedBrush" Color="{StaticResource AccentBlueRaw}" Opacity="0.55"/>
     
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryRaw}"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryRaw}"/>

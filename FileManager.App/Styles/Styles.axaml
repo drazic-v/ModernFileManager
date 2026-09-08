@@ -31,6 +31,17 @@
         <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
     </Style>
 
+    <Style Selector="Button.tab-close">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="CornerRadius" Value="2"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
     <!-- ===== ToggleButton (the Details button) ===== -->
     <Style Selector="ToggleButton">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -79,5 +90,23 @@
     <Style Selector="DataGridColumnHeader">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="{DynamicResource AccentBlueMutedBrush}"/>
+    </Style>
+
+    <!-- ===== ListBox (the tab strip) ===== -->
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+    </Style>
+
+    <Style Selector="ListBox.tab-strip ListBoxItem">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Margin" Value="2,4"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="MaxHeight" Value="36"/>
     </Style>
 </Styles>
