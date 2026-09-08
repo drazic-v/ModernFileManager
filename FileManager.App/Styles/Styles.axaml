@@ -27,6 +27,10 @@
         <Setter Property="Opacity" Value="0.4"/>
     </Style>
 
+    <Style Selector="Button.danger-hover:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+    </Style>
+
     <!-- ===== ToggleButton (the Details button) ===== -->
     <Style Selector="ToggleButton">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>

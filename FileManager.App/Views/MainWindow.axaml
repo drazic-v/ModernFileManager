@@ -20,7 +20,14 @@
     </Window.Resources>
 
     <Grid ColumnDefinitions="220,*, Auto">
-        <Border Grid.Column="0" Background="{DynamicResource SurfaceBackgroundBrush}" Padding="12">
+        <Border Grid.Column="0" Padding="12">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="{DynamicResource AppBackgroundRaw}" Offset="0"/>
+                    <GradientStop Color="{DynamicResource SurfaceBackgroundRaw}" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+
             <StackPanel Spacing="6">
                 <TextBlock Text="PROVIDERS" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
 
@@ -58,6 +65,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,4">
                                 <TextBlock Text="{Binding TabName}"/>
                                 <Button Content="✕"
+                                Classes="danger-hover"
                                 Command="{Binding $parent[Window].DataContext.CloseTabCommand}"
                                 CommandParameter="{Binding}"/>
                             </StackPanel>

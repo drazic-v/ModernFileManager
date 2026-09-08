@@ -8,6 +8,9 @@
     <Color x:Key="AccentBlueHoverRaw">#38BDF8</Color>    <!-- Hover Blue -->
     <Color x:Key="TextPrimaryRaw">#F8FAFC</Color>        <!-- Crisp White for main text -->
     <Color x:Key="TextSecondaryRaw">#94A3B8</Color>      <!-- Muted Light Blue-Grey for secondary text -->
+    <Color x:Key="WarningRaw">#F59E0B</Color>          <!-- Amber - warnings, quota approaching limit -->
+    <Color x:Key="DangerRaw">#EF4444</Color>            <!-- Red - errors, destructive actions -->
+    <Color x:Key="SecondaryAccentRaw">#A78BFA</Color>   <!-- Violet - second accent, per-provider tinting -->
 
     <!-- Solid Color Brushes -->
     <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackgroundRaw}"/>
@@ -21,5 +24,9 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryRaw}"/>
 
     <SolidColorBrush x:Key="BorderLightBrush" Color="#475569"/>
+
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningRaw}"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerRaw}"/>
+    <SolidColorBrush x:Key="SecondaryAccentBrush" Color="{StaticResource SecondaryAccentRaw}"/>
 
 </ResourceDictionary>
