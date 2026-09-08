@@ -69,7 +69,8 @@
             </StackPanel>
             
             <StackPanel Orientation="Horizontal" Grid.Row="1" 
-                        IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}">
+                        IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}"
+                        Spacing="4">
                 <Button Content="←" Command="{Binding SelectedTab.BackCommand}" />
                 <Button Content="→" Command="{Binding SelectedTab.ForwardCommand}" />
                 <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />

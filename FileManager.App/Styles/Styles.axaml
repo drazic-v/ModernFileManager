@@ -6,14 +6,39 @@
     </Border>
   </Design.PreviewWith>
 
-  <!-- Add Styles Here -->
-  <Style Selector="Button">
+    <!-- ===== Button ===== -->
+    <Style Selector="Button">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <Style Selector="Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+    </Style>
+
+     <Style Selector="Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBlueHoverBrush}"/>
+    </Style>
+    
+    <Style Selector="Button:disabled /template/ ContentPresenter">
+        <Setter Property="Opacity" Value="0.4"/>
+    </Style>
+
+    <!-- ===== ToggleButton (the Details button) ===== -->
+    <Style Selector="ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="ToggleButton:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
+    </Style>
+    <Style Selector="ToggleButton:checked /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
     </Style>
 </Styles>
