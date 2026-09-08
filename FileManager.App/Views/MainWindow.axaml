@@ -97,8 +97,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <DataGrid Background="{DynamicResource SurfaceBackgroundBrush}"
-                                      ItemsSource="{Binding Items}"
+                            <DataGrid ItemsSource="{Binding Items}"
                                       SelectedItem="{Binding SelectedItem}"
                                       IsVisible="{Binding IsActive}"
                                       DoubleTapped="OnItemDoubleTapped"
