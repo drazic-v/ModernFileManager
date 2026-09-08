@@ -109,4 +109,11 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="MaxHeight" Value="36"/>
     </Style>
+
+    <!-- ===== Separate Styles ===== -->
+    <Style Selector="Border.detail-card">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="14,12"/>
+    </Style>
 </Styles>
