@@ -41,4 +41,21 @@
     <Style Selector="ToggleButton:checked /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
     </Style>
+
+    <!-- ===== TextBox ===== -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderLightBrush}"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,6"/>
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+    </Style>
+
+    <!-- ===== CheckBox ===== -->
+    <Style Selector="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
 </Styles>
