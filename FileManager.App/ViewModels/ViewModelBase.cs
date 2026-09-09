@@ -35,6 +35,8 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public string DisplayName => _displayName;
     private readonly ObservableAsPropertyHelper<string> _tabName;
     public string TabName => _tabName.Value;
+    private readonly ObservableAsPropertyHelper<string> _displayPath;
+    public string DisplayPath => _displayPath.Value;
 
     private long? _folderSizeInBytes;
     private int? _folderFileCount;
@@ -130,6 +132,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         _currentFolder = startingFolder;
         _displayName = displayName;
         _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_displayName}: {folder.Name}").ToProperty(this, x => x.TabName);
+        _displayPath = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => TruncatePath(folder.Value, 50)).ToProperty(this, x => x.DisplayPath);
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));
@@ -292,6 +295,12 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
             if (!token.IsCancellationRequested)
                 IsFolderInfoLoading = false;
         }
+    }
+
+    private static string TruncatePath(string path, int maxLength)
+    {
+        if (path.Length <= maxLength) return path;
+        return "..." + path[^maxLength..];
     }
 
     public void Dispose()

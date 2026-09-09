@@ -95,7 +95,7 @@
                         Padding="10,4"
                         Margin="8,0"
                         VerticalAlignment="Center">
-                    <TextBlock Text="{Binding SelectedTab.CurrentFolder}"/>
+                    <TextBlock Text="{Binding SelectedTab.DisplayPath}"/>
                 </Border>
                 <TextBox PlaceholderText="Search this folder..." Text="{Binding SelectedTab.SearchText}" Width="180" KeyDown="OnSearchKeyDown"/>
                 <Button Content="✕" Classes="danger-hover" Command="{Binding SelectedTab.ClearSearchCommand}" IsVisible="{Binding SelectedTab.IsSearchActive}"/>
