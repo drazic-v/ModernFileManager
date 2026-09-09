@@ -10,7 +10,7 @@ namespace FileManager.App.ViewModels;
 // Placeholder shape for one in-progress transfer. Whenever your real upload/download
 // logic exists, it just needs to update ProgressPercent as it goes - the bar reacts
 // on its own, same as everything else built with RaiseAndSetIfChanged.
-public class TransferViewModel : ReactiveObject
+public class TransferViewModel : ReactiveObject, IDisposable
 {
     private double _progressPercent;
     private readonly CancellationTokenSource _cts = new();

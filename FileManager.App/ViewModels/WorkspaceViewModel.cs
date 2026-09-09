@@ -27,18 +27,11 @@ public class WorkspaceViewModel : ReactiveObject
 
     public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
-
-        //Tabs = new ObservableCollection<MainViewModel>
-        //{
-        //    new MainViewModel(provider, startingFolder, displayName)
-        //};
         Tabs = new ObservableCollection<MainViewModel>();
-
-        //SelectedTab = Tabs[0];
-        //UpdateCanCloseTabs();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
         CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab);
+
         // This is just a placeholder to demonstrate how the transfer progress bar works.
         // In a real application, you would add TransferViewModel instances to
         // ActiveTransfers when actual file transfers are initiated.
@@ -117,6 +110,11 @@ public class WorkspaceViewModel : ReactiveObject
     {
         if (Clipboard is not { } clip || SelectedTab is not { } target) return;
 
+        if (clip.SourceProvider.ProviderId != target.Provider.ProviderId)
+        {
+            return; // TODO: route through TransferManager's stream-pump path once it exists
+        }
+
         if (clip.IsCut && clip.Item.Path.Parent() is { } sourceParent && StoragePath.PathsEqual(sourceParent, target.CurrentFolder))
         {
             Clipboard = null; // already exactly here - nothing to do
@@ -151,6 +149,10 @@ public class WorkspaceViewModel : ReactiveObject
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception)
+        {
+            // TODO: surface a real error once there's a notification system; for now, fail without crashing
         }
         finally
         {

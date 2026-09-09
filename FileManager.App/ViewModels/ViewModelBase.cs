@@ -155,20 +155,37 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     private async Task LoadAsync(StoragePath folder)
     {
         var token = BeginNewOperation();
-        Items.Clear();
-        SelectedItem = null;
+        var hasCleared = false;
         try
         {
             await foreach (var item in _provider.ListAsync(folder, token))
             {
+                if (!hasCleared)
+                {
+                    Items.Clear();
+                    SelectedItem = null;
+                    hasCleared = true;
+                }
                 if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
                     Items.Add(item);
             }
         }
         catch (OperationCanceledException)
         {
-            return; // something newer superseded this call — let that one finish instead
+            return;
         }
+        catch (Exception)
+        {
+            return; // hasCleared is still false here on an early failure - current listing untouched
+        }
+
+        if (!hasCleared)
+        {
+            // loop completed with zero items - a genuinely empty folder still needs to *look* empty
+            Items.Clear();
+            SelectedItem = null;
+        }
+
         CurrentFolder = folder;
         IsSearchActive = false;
     }
@@ -181,10 +198,15 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
     private async Task NavigateToAsync(StoragePath folder)
     {
-        _backStack.Push(CurrentFolder);
+        var previous = CurrentFolder;
+        await LoadAsync(folder);
+
+        if (!StoragePath.PathsEqual(CurrentFolder, folder))
+            return; // LoadAsync failed - CurrentFolder never actually changed, nothing to record
+
+        _backStack.Push(previous);
         _forwardStack.Clear();
         UpdateNavigationState();
-        await LoadAsync(folder);
     }
 
     public async Task NavigateIntoAsync(StorageItem item)
@@ -207,19 +229,31 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public async Task BackAsync()
     {
         if (_backStack.Count == 0) return;
-        _forwardStack.Push(CurrentFolder);
-        var previous = _backStack.Pop();
+        var target = _backStack.Peek();
+        var before = CurrentFolder;
+        await LoadAsync(target);
+
+        if (!StoragePath.PathsEqual(CurrentFolder, target))
+            return; // leave the stacks untouched - the entry might still be valid later
+
+        _backStack.Pop();
+        _forwardStack.Push(before);
         UpdateNavigationState();
-        await LoadAsync(previous);
     }
 
     public async Task ForwardAsync()
     {
         if (_forwardStack.Count == 0) return;
-        _backStack.Push(CurrentFolder);
-        var next = _forwardStack.Pop();
+        var target = _forwardStack.Peek();
+        var before = CurrentFolder;
+        await LoadAsync(target);
+
+        if (!StoragePath.PathsEqual(CurrentFolder, target))
+            return;
+
+        _forwardStack.Pop();
+        _backStack.Push(before);
         UpdateNavigationState();
-        await LoadAsync(next);
     }
 
     public async Task SearchCurrentFolderAsync(string query)
@@ -250,6 +284,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         catch (OperationCanceledException)
         {
             return;
+        }
+        catch (Exception)
+        {
+            return; // same reasoning as LoadAsync: fail safely instead of crashing.
         }
     }
 
@@ -293,6 +331,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             return; // a newer selection superseded this calculation
         }
+        catch (Exception)
+        {
+            // same reasoning as LoadAsync: fail safely instead of crashing.
+        }
         finally
         {
             if (!token.IsCancellationRequested)
@@ -308,16 +350,32 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public async Task OpenItemAsync(StorageItem item)
     {
         if (item.Kind == StorageItemKind.Directory)
+        {
             await NavigateIntoAsync(item);
-        else
+            return;
+        }
+        try
+        {
             await _provider.OpenFileAsync(item.Path);
+        }
+        catch (Exception)
+        {
+            // same reasoning as LoadAsync: fail safely instead of crashing.
+        }
     }
-
     public async Task DeleteItemAsync(StorageItem item)
     {
-        await _provider.DeleteAsync(item.Path);
-        Items.Remove(item);
-        if (SelectedItem == item) SelectedItem = null;
+        try
+        {
+            await _provider.DeleteAsync(item.Path);
+            Items.Remove(item);
+            if (SelectedItem == item) SelectedItem = null;
+        }
+        catch (Exception)
+        {
+            return; // same reasoning as LoadAsync: fail safely instead of crashing.
+        }
+        
     }
 
     public void Dispose()
