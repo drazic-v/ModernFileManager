@@ -22,6 +22,32 @@
         <conv:GreaterThanZeroConverter x:Key="GreaterThanZero"/>
     </Window.Resources>
 
+    <Window.Styles>
+        <Style Selector="DataGridRow">
+            <Setter Property="ContextMenu">
+                <ContextMenu x:CompileBindings="False">
+                    <MenuItem Header="Open"
+                              Command="{Binding $parent[DataGrid].DataContext.OpenItemCommand}"
+                              CommandParameter="{Binding}"/>
+                    <Separator/>
+                    <MenuItem Header="Cut"
+                              Command="{Binding $parent[Window].DataContext.CutToClipboardCommand}"
+                              CommandParameter="{Binding}"/>
+                    <MenuItem Header="Copy"
+                              Command="{Binding $parent[Window].DataContext.CopyToClipboardCommand}"
+                              CommandParameter="{Binding}"/>
+                    <MenuItem Header="Paste"
+                              Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="Delete"
+                              Tag="{Binding $parent[DataGrid].DataContext}"
+                              CommandParameter="{Binding}"
+                              Click="OnDeleteMenuItemClick"/>
+                </ContextMenu>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
     <Grid ColumnDefinitions="220,*, Auto">
         <Border Grid.Column="0" Padding="12">
             <Border.Background>
@@ -113,6 +139,12 @@
                                       DoubleTapped="OnItemDoubleTapped"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu x:CompileBindings="False">
+                                        <MenuItem Header="Paste" Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
+
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="300"/>
                                     <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="100"/>
@@ -155,8 +187,8 @@
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
                                 <TextBlock Text="{Binding Name}" Width="200"/>
-                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" Width="150"/>
-                                <TextBlock Text="{Binding ProgressPercent, StringFormat='{}{0:0}%'}"/>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercent}" IsIndeterminate="{Binding IsMeasuring}" Width="150"/>                                <TextBlock Text="{Binding ProgressPercent, StringFormat='{}{0:0}%'}"/>
+                                <Button Content="✕" Classes="danger-hover" Command="{Binding CancelCommand}"/>
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

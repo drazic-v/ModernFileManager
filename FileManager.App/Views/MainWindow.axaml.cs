@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Metadata;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
@@ -27,5 +28,14 @@ public partial class MainWindow : Window
         {
             await tab.SearchCurrentFolderAsync(tab.SearchText);
         }
+    }
+
+    private async void OnDeleteMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: MainViewModel tab, CommandParameter: StorageItem item }) return;
+
+        var dialog = new ConfirmDialog($"Delete \"{item.Name}\"? This can't be undone.");
+        if (await dialog.ShowDialog<bool>(this))
+            await tab.DeleteItemAsync(item);
     }
 }
