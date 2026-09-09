@@ -53,7 +53,7 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *, Auto, Auto" Background="{DynamicResource SurfaceBackgroundBrush}">
+        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *, Auto, Auto, Auto" Background="{DynamicResource SurfaceBackgroundBrush}">
             <StackPanel Height="40" Grid.Row="0" Orientation="Horizontal" Background="{DynamicResource SurfaceBackgroundBrush}">
                 <ListBox Classes="tab-strip"
                          ItemsSource="{Binding Tabs}"
@@ -81,25 +81,22 @@
                 <Button Content="+" Command="{Binding AddTabCommand}" Margin="4,0,0,0"/>
             </StackPanel>
             
-            <StackPanel Orientation="Horizontal" Grid.Row="1" 
-                        IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}"
-                        Spacing="4">
-                <Button Content="←" Command="{Binding SelectedTab.BackCommand}" />
-                <Button Content="→" Command="{Binding SelectedTab.ForwardCommand}" />
-                <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />
-                <Button Content="↻" Command="{Binding SelectedTab.RefreshCommand}" />
-                <CheckBox Content="Show hidden" IsChecked="{Binding SelectedTab.ShowHiddenItems}"/>
-                <ToggleButton Content="Details" IsChecked="{Binding SelectedTab.IsDetailsPanelOpen}"/>
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        CornerRadius="6"
-                        Padding="10,4"
-                        Margin="8,0"
-                        VerticalAlignment="Center">
-                    <TextBlock Text="{Binding SelectedTab.DisplayPath}"/>
-                </Border>
-                <TextBox PlaceholderText="Search this folder..." Text="{Binding SelectedTab.SearchText}" Width="180" KeyDown="OnSearchKeyDown"/>
-                <Button Content="✕" Classes="danger-hover" Command="{Binding SelectedTab.ClearSearchCommand}" IsVisible="{Binding SelectedTab.IsSearchActive}"/>
-            </StackPanel>
+            <Border Grid.Row="1" Padding="8,6"
+                    Background="{DynamicResource SurfaceBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderLightBrush}"
+                    BorderThickness="0,1,0,1"
+                    IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}">
+                <WrapPanel Orientation="Horizontal" ItemSpacing="4" LineSpacing="4">
+                    <Button Content="←" Command="{Binding SelectedTab.BackCommand}" />
+                    <Button Content="→" Command="{Binding SelectedTab.ForwardCommand}" />
+                    <Button Content="↑" Command="{Binding SelectedTab.NavigateUpCommand}" />
+                    <Button Content="↻" Command="{Binding SelectedTab.RefreshCommand}" />
+                    <CheckBox Content="Show hidden" IsChecked="{Binding SelectedTab.ShowHiddenItems}"/>
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="10,4" Margin="8,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding SelectedTab.DisplayPath}"/>
+                    </Border>
+                </WrapPanel>
+            </Border>
 
             <Grid Grid.Row="2">
                 <ItemsControl ItemsSource="{Binding Tabs}">
@@ -140,6 +137,18 @@
                     Background="{DynamicResource SurfaceBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderLightBrush}"
                     BorderThickness="0,1,0,0"
+                    IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ToggleButton Content="Details" IsChecked="{Binding SelectedTab.IsDetailsPanelOpen}"/>
+                    <TextBox PlaceholderText="Search this folder..." Text="{Binding SelectedTab.SearchText}" Width="220" KeyDown="OnSearchKeyDown"/>
+                    <Button Content="✕" Classes="danger-hover" Command="{Binding SelectedTab.ClearSearchCommand}" IsVisible="{Binding SelectedTab.IsSearchActive}"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="4" Padding="8,4"
+                    Background="{DynamicResource SurfaceBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderLightBrush}"
+                    BorderThickness="0,1,0,0"
                     IsVisible="{Binding ActiveTransfers.Count, Converter={StaticResource GreaterThanZero}}">
                 <ItemsControl ItemsSource="{Binding ActiveTransfers}">
                     <ItemsControl.ItemTemplate>
@@ -154,7 +163,7 @@
                 </ItemsControl>
             </Border>
 
-            <Border Grid.Row="4" Padding="8,4"
+            <Border Grid.Row="5" Padding="8,4"
                     Background="{DynamicResource SurfaceBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderLightBrush}"
                     BorderThickness="0,1,0,0">
