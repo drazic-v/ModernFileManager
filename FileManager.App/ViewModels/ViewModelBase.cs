@@ -125,6 +125,8 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> BackCommand { get; }
     public ReactiveCommand<Unit, Unit> ForwardCommand { get; }
     public ReactiveCommand<Unit, Unit> ClearSearchCommand { get; }
+    public ReactiveCommand<StorageItem, Unit> OpenItemCommand { get; }
+
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
         _showHiddenItems = false;
@@ -138,6 +140,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         BackCommand = ReactiveCommand.CreateFromTask(BackAsync, this.WhenAnyValue(x => x.CanGoBack));
         ForwardCommand = ReactiveCommand.CreateFromTask(ForwardAsync, this.WhenAnyValue(x => x.CanGoForward));
         ClearSearchCommand = ReactiveCommand.CreateFromTask(ClearSearchAsync);
+        OpenItemCommand = ReactiveCommand.CreateFromTask<StorageItem>(OpenItemAsync);
         _ = LoadAsync(startingFolder);
     }
 
@@ -301,6 +304,20 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     {
         if (path.Length <= maxLength) return path;
         return "..." + path[^maxLength..];
+    }
+    public async Task OpenItemAsync(StorageItem item)
+    {
+        if (item.Kind == StorageItemKind.Directory)
+            await NavigateIntoAsync(item);
+        else
+            await _provider.OpenFileAsync(item.Path);
+    }
+
+    public async Task DeleteItemAsync(StorageItem item)
+    {
+        await _provider.DeleteAsync(item.Path);
+        Items.Remove(item);
+        if (SelectedItem == item) SelectedItem = null;
     }
 
     public void Dispose()

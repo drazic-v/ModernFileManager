@@ -1,9 +1,11 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Reactive;
-using ReactiveUI;
-using FileManager.Core.Models;
+﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
+using ReactiveUI;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Reactive;
+using System.Threading.Tasks;
 
 namespace FileManager.App.ViewModels;
 
@@ -11,6 +13,17 @@ public class WorkspaceViewModel : ReactiveObject
 {
     private MainViewModel? _selectedTab;
     public ObservableCollection<TransferViewModel> ActiveTransfers { get; } = new();
+
+    private ClipboardEntry? _clipboard;
+    public ClipboardEntry? Clipboard
+    {
+        get => _clipboard;
+        private set => this.RaiseAndSetIfChanged(ref _clipboard, value);
+    }
+
+    public ReactiveCommand<StorageItem, Unit> CopyToClipboardCommand { get; }
+    public ReactiveCommand<StorageItem, Unit> CutToClipboardCommand { get; }
+    public ReactiveCommand<Unit, Unit> PasteCommand { get; }
 
     public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
@@ -34,6 +47,12 @@ public class WorkspaceViewModel : ReactiveObject
         Providers.Add(new ProviderViewModel(displayName, provider, startingFolder));
         OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder, entry.DisplayName));
         AddProviderCommand = ReactiveCommand.Create(() => { /* TODO: open a connect-provider window once a second provider type exists */ });
+
+        CopyToClipboardCommand = ReactiveCommand.Create<StorageItem>(item => SetClipboard(item, isCut: false));
+        CutToClipboardCommand = ReactiveCommand.Create<StorageItem>(item => SetClipboard(item, isCut: true));
+        PasteCommand = ReactiveCommand.CreateFromTask(PasteAsync,
+            this.WhenAnyValue(x => x.Clipboard, x => x.SelectedTab,
+                (clip, tab) => clip is not null && tab is not null && clip.SourceProvider == tab.Provider));
     }
 
     public ObservableCollection<MainViewModel> Tabs { get; }
@@ -85,5 +104,60 @@ public class WorkspaceViewModel : ReactiveObject
 
         if (wasSelected)
             SelectedTab = Tabs.Count > 0 ? Tabs[Math.Max(0, index - 1)] : null;
+    }
+
+    private void SetClipboard(StorageItem item, bool isCut)
+    {
+        var provider = Providers.FirstOrDefault(p => p.Provider.ProviderId == item.Path.ProviderId)?.Provider;
+        if (provider is null) return;
+        Clipboard = new ClipboardEntry(item, provider, isCut);
+    }
+
+    private async Task PasteAsync()
+    {
+        if (Clipboard is not { } clip || SelectedTab is not { } target) return;
+
+        if (clip.IsCut && clip.Item.Path.Parent() is { } sourceParent && StoragePath.PathsEqual(sourceParent, target.CurrentFolder))
+        {
+            Clipboard = null; // already exactly here - nothing to do
+            return;
+        }
+
+        if (clip.Item.Kind == StorageItemKind.Directory && StoragePath.IsSameOrDescendant(target.CurrentFolder, clip.Item.Path))
+        {
+            return; // TODO: real user-facing "can't paste a folder into itself" message once we build error surfacing
+        }
+
+        var transfer = new TransferViewModel(clip.Item.Name);
+        ActiveTransfers.Add(transfer);
+
+        try
+        {
+            long totalBytes = clip.Item.Kind == StorageItemKind.Directory
+                ? (await FolderInfoCalculator.GetFolderInfo(clip.SourceProvider, clip.Item.Path, ct: transfer.Token)).Size
+                : clip.Item.SizeInBytes ?? 0;
+
+            transfer.IsMeasuring = false;
+
+            var progress = new Progress<TransferProgress>(p =>
+                transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)p.BytesCopied / totalBytes * 100) : 100);
+
+            if (clip.IsCut)
+                await clip.SourceProvider.MoveAsync(clip.Item.Path, target.CurrentFolder, progress: progress, ct: transfer.Token);
+            else
+                await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, progress: progress, ct: transfer.Token);
+
+            if (clip.IsCut) Clipboard = null;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            ActiveTransfers.Remove(transfer);
+            transfer.Dispose();
+        }
+
+        await target.RefreshAsync();
     }
 }
