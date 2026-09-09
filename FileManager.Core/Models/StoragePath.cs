@@ -31,6 +31,20 @@ namespace FileManager.Core.Models
             return lastSlash <= 0 ? null : this with { Value = trimmed[..lastSlash].ToString() };
         }
 
+        public static bool PathsEqual(StoragePath path1, StoragePath path2) =>
+    string.Equals(path1.Value, path2.Value, StringComparison.OrdinalIgnoreCase);
+
+        public static bool IsSameOrDescendant(StoragePath candidate, StoragePath ancestor)
+        {
+            StoragePath? current = candidate;
+            while (current is not null)
+            {
+                if (PathsEqual(current, ancestor)) return true;
+                current = current.Parent();
+            }
+            return false;
+        }
+
         public override string ToString() => $"{ProviderId}:{Value}";
     }
 }
