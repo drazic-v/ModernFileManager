@@ -378,6 +378,21 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         
     }
 
+    public async Task<StorageItem?> CreateFolderAsync()
+    {
+        try
+        {
+            var created = await _provider.CreateDirectoryAsync(CurrentFolder, "New Folder");
+            Items.Add(created);
+            SelectedItem = created;
+            return created;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     public async Task RenameItemAsync(StorageItem item, string newName)
     {
         try

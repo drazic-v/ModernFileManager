@@ -30,6 +30,10 @@
                               Command="{Binding $parent[DataGrid].DataContext.OpenItemCommand}"
                               CommandParameter="{Binding}"/>
                     <Separator/>
+                    <MenuItem Header="New Folder" 
+                              Tag="{Binding $parent[DataGrid]}" 
+                              Click="OnNewFolderMenuItemClick"/>
+                    <Separator/>
                     <MenuItem Header="Cut"
                               Command="{Binding $parent[Window].DataContext.CutToClipboardCommand}"
                               CommandParameter="{Binding}"/>
@@ -147,7 +151,12 @@
                                       BeginningEdit="OnBeginningEdit">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu x:CompileBindings="False">
-                                        <MenuItem Header="Paste" Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
+                                        <MenuItem Header="New Folder" 
+                                                  Tag="{Binding $parent[DataGrid]}" 
+                                                  Click="OnNewFolderMenuItemClick"/>
+                                        <Separator/>
+                                        <MenuItem Header="Paste" 
+                                                  Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
                                     </ContextMenu>
                                 </DataGrid.ContextMenu>
 

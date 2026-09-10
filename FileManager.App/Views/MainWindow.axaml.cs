@@ -72,4 +72,21 @@ public partial class MainWindow : Window
         grid.BeginEdit();
         _renameRequestedProgrammatically = false;
     }
+
+    private async void OnNewFolderMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: DataGrid grid } || grid.DataContext is not MainViewModel tab) return;
+
+        var newItem = await tab.CreateFolderAsync();
+        if (newItem is null) return;
+
+        var nameColumn = grid.Columns.First(c => c.Header as string == "Name");
+        grid.SelectedItem = newItem;
+        grid.ScrollIntoView(newItem, nameColumn);
+        grid.CurrentColumn = nameColumn;
+
+        _renameRequestedProgrammatically = true;
+        grid.BeginEdit();
+        _renameRequestedProgrammatically = false;
+    }
 }
