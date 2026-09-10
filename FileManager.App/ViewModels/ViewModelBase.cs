@@ -378,6 +378,23 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         
     }
 
+    public async Task RenameItemAsync(StorageItem item, string newName)
+    {
+        try
+        {
+            var renamed = await _provider.RenameAsync(item.Path, newName);
+            var index = Items.IndexOf(item);
+            if (index >= 0) Items[index] = renamed;
+            if (SelectedItem == item) SelectedItem = renamed;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+        }
+    }
+
     public void Dispose()
     {
         _tabName.Dispose();

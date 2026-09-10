@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Metadata;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
+using System.Linq;
 
 namespace FileManager.App.Views;
 
@@ -37,5 +38,27 @@ public partial class MainWindow : Window
         var dialog = new ConfirmDialog($"Delete \"{item.Name}\"? This can't be undone.");
         if (await dialog.ShowDialog<bool>(this))
             await tab.DeleteItemAsync(item);
+    }
+
+    private void OnCellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit) return; // Escape was pressed - nothing to do
+        if (e.EditingElement is not TextBox textBox) return;
+        if (e.Row.DataContext is not StorageItem item) return;
+        if (sender is not DataGrid { DataContext: MainViewModel tab }) return;
+
+        var newName = textBox.Text?.Trim();
+        if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
+
+        _ = tab.RenameItemAsync(item, newName);
+    }
+
+    private void OnRenameMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: DataGrid grid, CommandParameter: StorageItem item }) return;
+
+        grid.SelectedItem = item;
+        grid.CurrentColumn = grid.Columns.First(c => c.Header as string == "Name");
+        grid.BeginEdit();
     }
 }
