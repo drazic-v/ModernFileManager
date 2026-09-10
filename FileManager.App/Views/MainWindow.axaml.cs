@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
         if(sender is DataGrid { DataContext: MainViewModel vm, SelectedItem: StorageItem item })
-            await vm.NavigateIntoAsync(item);
+            await vm.OpenItemAsync(item);
     }
 
     private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
@@ -53,12 +53,23 @@ public partial class MainWindow : Window
         _ = tab.RenameItemAsync(item, newName);
     }
 
+    private bool _renameRequestedProgrammatically;
+
+    private void OnBeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (!_renameRequestedProgrammatically)
+            e.Cancel = true; // block F2 and double-click - Rename only starts from the context menu now
+    }
+
     private void OnRenameMenuItemClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: DataGrid grid, CommandParameter: StorageItem item }) return;
 
         grid.SelectedItem = item;
         grid.CurrentColumn = grid.Columns.First(c => c.Header as string == "Name");
+
+        _renameRequestedProgrammatically = true;
         grid.BeginEdit();
+        _renameRequestedProgrammatically = false;
     }
 }

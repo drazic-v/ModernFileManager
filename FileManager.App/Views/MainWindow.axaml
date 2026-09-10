@@ -143,7 +143,8 @@
                                       DoubleTapped="OnItemDoubleTapped"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="False"
-                                      CellEditEnding="OnCellEditEnding">
+                                      CellEditEnding="OnCellEditEnding"
+                                      BeginningEdit="OnBeginningEdit">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu x:CompileBindings="False">
                                         <MenuItem Header="Paste" Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
