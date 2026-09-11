@@ -103,6 +103,12 @@ public class WorkspaceViewModel : ReactiveObject
             SelectedTab = Tabs.Count > 0 ? Tabs[Math.Max(0, index - 1)] : null;
     }
 
+    public async Task RefreshTabsViewingAsync(MainViewModel exclude, StoragePath folder)
+    {
+        foreach (var tab in Tabs.Where(t => t != exclude && StoragePath.PathsEqual(t.CurrentFolder, folder)))
+            await tab.RefreshAsync();
+    }
+
     private void SetClipboard(StorageItem item, bool isCut)
     {
         var provider = Providers.FirstOrDefault(p => p.Provider.ProviderId == item.Path.ProviderId)?.Provider;
@@ -168,5 +174,9 @@ public class WorkspaceViewModel : ReactiveObject
         }
 
         await target.RefreshAsync();
+        await RefreshTabsViewingAsync(target, target.CurrentFolder);
+
+        if (clip.IsCut && clip.Item.Path.Parent() is { } parentSource)
+            await RefreshTabsViewingAsync(target, parentSource);
     }
 }

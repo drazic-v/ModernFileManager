@@ -5,6 +5,7 @@ using Avalonia.Metadata;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace FileManager.App.Views;
 
@@ -36,8 +37,11 @@ public partial class MainWindow : Window
         if (sender is not MenuItem { Tag: MainViewModel tab, CommandParameter: StorageItem item }) return;
 
         var dialog = new ConfirmDialog($"Delete \"{item.Name}\"? This can't be undone.");
-        if (await dialog.ShowDialog<bool>(this))
+        if (await dialog.ShowDialog<bool>(this)){
             await tab.DeleteItemAsync(item);
+            if (DataContext is WorkspaceViewModel workspace)
+                await workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
+        }
     }
 
     private void OnCellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
@@ -50,7 +54,7 @@ public partial class MainWindow : Window
         var newName = textBox.Text?.Trim();
         if (string.IsNullOrEmpty(newName) || newName == item.Name) return;
 
-        _ = tab.RenameItemAsync(item, newName);
+        _ = RenameAndRefreshAsync(tab, item, newName);
     }
 
     private bool _renameRequestedProgrammatically;
@@ -61,6 +65,19 @@ public partial class MainWindow : Window
             e.Cancel = true; // block F2 and double-click - Rename only starts from the context menu now
     }
 
+    private void BeginProgrammaticEdit(DataGrid grid)
+    {
+        _renameRequestedProgrammatically = true;
+        try
+        {
+            grid.BeginEdit();
+        }
+        finally
+        {
+            _renameRequestedProgrammatically = false;
+        }
+    }
+
     private void OnRenameMenuItemClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: DataGrid grid, CommandParameter: StorageItem item }) return;
@@ -68,9 +85,13 @@ public partial class MainWindow : Window
         grid.SelectedItem = item;
         grid.CurrentColumn = grid.Columns.First(c => c.Header as string == "Name");
 
-        _renameRequestedProgrammatically = true;
-        grid.BeginEdit();
-        _renameRequestedProgrammatically = false;
+        BeginProgrammaticEdit(grid);
+    }
+    private async Task RenameAndRefreshAsync(MainViewModel tab, StorageItem item, string newName)
+    {
+        await tab.RenameItemAsync(item, newName);
+        if (DataContext is WorkspaceViewModel workspace)
+            await workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
     }
 
     private async void OnNewFolderMenuItemClick(object? sender, RoutedEventArgs e)
@@ -85,8 +106,10 @@ public partial class MainWindow : Window
         grid.ScrollIntoView(newItem, nameColumn);
         grid.CurrentColumn = nameColumn;
 
-        _renameRequestedProgrammatically = true;
-        grid.BeginEdit();
-        _renameRequestedProgrammatically = false;
+        BeginProgrammaticEdit(grid);
+
+
+        if (DataContext is WorkspaceViewModel workspace)
+            _ = workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
     }
 }

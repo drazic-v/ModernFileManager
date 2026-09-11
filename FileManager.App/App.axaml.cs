@@ -27,18 +27,6 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            RxAppBuilder.CreateReactiveUIBuilder()
-            .WithExceptionHandler(Observer.Create<Exception>(ex =>
-            {
-                if (Debugger.IsAttached)
-                    Debugger.Break();
-
-                // Log or show a dialog
-                Debug.WriteLine($"[Unhandled command exception]\n{ex}");
-            }))
-            .BuildApp();
-
-
             var provider = new LocalStorageProvider();
             var home =  Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
             var startingFolder = new StoragePath { ProviderId = provider.ProviderId, Value = home };
@@ -49,6 +37,17 @@ public partial class App : Application
                 MaxItems = 3
             };
             var notifications = new NotificationService(notificationManager);
+
+            RxAppBuilder.CreateReactiveUIBuilder()
+            .WithExceptionHandler(Observer.Create<Exception>(ex =>
+            {
+                if (Debugger.IsAttached)
+                    Debugger.Break();
+
+                Debug.WriteLine($"[Unhandled command exception]\n{ex}");
+                Dispatcher.Post(() => notifications.ShowError("Something went wrong - please try that again."));
+            }))
+            .BuildApp();
 
             mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications);
             desktop.MainWindow = mainWindow;
