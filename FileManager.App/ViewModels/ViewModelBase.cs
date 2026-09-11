@@ -406,6 +406,9 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
     public async Task RenameItemAsync(StorageItem item, string newName)
     {
+        if (!Items.Contains(item))
+            return; // already handled by an earlier call - nothing left to do
+
         try
         {
             var renamed = await _provider.RenameAsync(item.Path, newName);

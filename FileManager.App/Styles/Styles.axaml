@@ -116,4 +116,8 @@
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="14,12"/>
     </Style>
+
+    <Style Selector="MenuItem.danger-hover:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+    </Style>
 </Styles>

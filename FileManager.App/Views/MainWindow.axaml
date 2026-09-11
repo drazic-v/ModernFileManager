@@ -43,7 +43,7 @@
                     <MenuItem Header="Paste"
                               Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
                     <Separator/>
-                    <MenuItem Header="Delete"
+                    <MenuItem Header="Delete" Classes="danger-hover"
                               Tag="{Binding $parent[DataGrid].DataContext}"
                               CommandParameter="{Binding}"
                               Click="OnDeleteMenuItemClick"/>
@@ -148,7 +148,8 @@
                                       AutoGenerateColumns="False"
                                       IsReadOnly="False"
                                       CellEditEnding="OnCellEditEnding"
-                                      BeginningEdit="OnBeginningEdit">
+                                      BeginningEdit="OnBeginningEdit"
+                                      GridLinesVisibility="Horizontal">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu x:CompileBindings="False">
                                         <MenuItem Header="New Folder" 
