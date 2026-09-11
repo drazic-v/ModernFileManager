@@ -1,6 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Notifications;
 using Avalonia.Markup.Xaml;
+using FileManager.App.Services;
 using FileManager.App.ViewModels;
 using FileManager.App.Views;
 using FileManager.Core.Models;
@@ -40,7 +42,16 @@ public partial class App : Application
             var provider = new LocalStorageProvider();
             var home =  Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\\', '/');
             var startingFolder = new StoragePath { ProviderId = provider.ProviderId, Value = home };
-            desktop.MainWindow = new MainWindow { DataContext = new WorkspaceViewModel(provider, startingFolder, "Local") };
+            var mainWindow = new MainWindow();
+            var notificationManager = new WindowNotificationManager(mainWindow)
+            {
+                Position = NotificationPosition.BottomRight,
+                MaxItems = 3
+            };
+            var notifications = new NotificationService(notificationManager);
+
+            mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications);
+            desktop.MainWindow = mainWindow;
         }
         base.OnFrameworkInitializationCompleted();
     }

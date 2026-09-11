@@ -1,4 +1,5 @@
 ﻿using Avalonia.Threading;
+using FileManager.App.Services;
 using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using ReactiveUI;
@@ -127,12 +128,16 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> ClearSearchCommand { get; }
     public ReactiveCommand<StorageItem, Unit> OpenItemCommand { get; }
 
-    public ViewModelBase(IStorageProvider provider, StoragePath startingFolder, string displayName)
+    private readonly INotificationService _notifications;
+
+
+    public ViewModelBase(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications)
     {
         _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
         _displayName = displayName;
+        _notifications = notifications;
         _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_displayName}: {folder.Name}").ToProperty(this, x => x.TabName);
         _displayPath = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => TruncatePath(folder.Value, 50)).ToProperty(this, x => x.DisplayPath);
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
@@ -174,9 +179,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return; // hasCleared is still false here on an early failure - current listing untouched
+            _notifications.ShowError($"Couldn't open \"{folder.Name}\": {ex.Message}");
+            return;
         }
 
         if (!hasCleared)
@@ -285,9 +291,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return; // same reasoning as LoadAsync: fail safely instead of crashing.
+            _notifications.ShowError($"Couldn't search \"{CurrentFolder.Name}\": {ex.Message}");
+            return; 
         }
     }
 
@@ -331,9 +338,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             return; // a newer selection superseded this calculation
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // same reasoning as LoadAsync: fail safely instead of crashing.
+            _notifications.ShowError($"Couldn't calculate folder size: {ex.Message}");
+            return;
         }
         finally
         {
@@ -358,9 +366,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             await _provider.OpenFileAsync(item.Path);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // same reasoning as LoadAsync: fail safely instead of crashing.
+            _notifications.ShowError($"Couldn't open \"{item.Name}\": {ex.Message}");
+            return;
         }
     }
     public async Task DeleteItemAsync(StorageItem item)
@@ -371,9 +380,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
             Items.Remove(item);
             if (SelectedItem == item) SelectedItem = null;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return; // same reasoning as LoadAsync: fail safely instead of crashing.
+            _notifications.ShowError($"Couldn't delete \"{item.Name}\": {ex.Message}");
+            return; 
         }
         
     }
@@ -387,8 +397,9 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
             SelectedItem = created;
             return created;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _notifications.ShowError($"Couldn't create folder in \"{CurrentFolder.Name}\": {ex.Message}");
             return null;
         }
     }
@@ -405,8 +416,10 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         catch (OperationCanceledException)
         {
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _notifications.ShowError($"Couldn't rename \"{item.Name}\": {ex.Message}");
+            return;
         }
     }
 

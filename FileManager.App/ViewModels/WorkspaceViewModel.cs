@@ -1,4 +1,5 @@
-﻿using FileManager.Core.Models;
+﻿using FileManager.App.Services;
+using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using ReactiveUI;
 using System;
@@ -25,8 +26,11 @@ public class WorkspaceViewModel : ReactiveObject
     public ReactiveCommand<StorageItem, Unit> CutToClipboardCommand { get; }
     public ReactiveCommand<Unit, Unit> PasteCommand { get; }
 
-    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName)
+    private readonly INotificationService _notifications;
+
+    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications)
     {
+        _notifications = notifications;
         Tabs = new ObservableCollection<MainViewModel>();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
@@ -80,7 +84,7 @@ public class WorkspaceViewModel : ReactiveObject
     }
     private void OpenTab(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
-        var tab = new MainViewModel(provider, startingFolder, displayName);
+        var tab = new MainViewModel(provider, startingFolder, displayName, _notifications);
         Tabs.Add(tab);
         SelectedTab = tab;
     }
@@ -117,13 +121,15 @@ public class WorkspaceViewModel : ReactiveObject
 
         if (clip.IsCut && clip.Item.Path.Parent() is { } sourceParent && StoragePath.PathsEqual(sourceParent, target.CurrentFolder))
         {
+            _notifications.ShowError($"Can't move \"{clip.Item.Name}\" to the same folder.");
             Clipboard = null; // already exactly here - nothing to do
             return;
         }
 
         if (clip.Item.Kind == StorageItemKind.Directory && StoragePath.IsSameOrDescendant(target.CurrentFolder, clip.Item.Path))
         {
-            return; // TODO: real user-facing "can't paste a folder into itself" message once we build error surfacing
+            _notifications.ShowError($"Can't paste \"{clip.Item.Name}\" into itself.");
+            return;
         }
 
         var transfer = new TransferViewModel(clip.Item.Name);
@@ -146,13 +152,14 @@ public class WorkspaceViewModel : ReactiveObject
                 await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, progress: progress, ct: transfer.Token);
 
             if (clip.IsCut) Clipboard = null;
+            _notifications.ShowSuccess($"{(clip.IsCut ? "Moved" : "Copied")} \"{clip.Item.Name}\".");
         }
         catch (OperationCanceledException)
         {
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // TODO: surface a real error once there's a notification system; for now, fail without crashing
+            _notifications.ShowError($"Couldn't paste \"{clip.Item.Name}\": {ex.Message}");
         }
         finally
         {
