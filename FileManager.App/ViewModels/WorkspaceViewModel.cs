@@ -145,13 +145,19 @@ public class WorkspaceViewModel : ReactiveObject
         ActiveTransfers.Add(transfer);
 
         NameCollisionPolicy? remembered = null;
+        NameCollisionPolicy? topLevelResolution = null;
         ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
         {
-            if (remembered is { } r) return r;
+            if (remembered is { } r)
+            {
+                if (destinationPath.Name == clip.Item.Name) topLevelResolution = r;
+                return r;
+            }
 
             var canMerge = clip.Item.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
             var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, ct);
 
+            if (destinationPath.Name == clip.Item.Name) topLevelResolution = policy;
             if (applyToAll) remembered = policy;
             return policy;
         };
@@ -173,7 +179,17 @@ public class WorkspaceViewModel : ReactiveObject
                 await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
 
             if (clip.IsCut) Clipboard = null;
-            _notifications.ShowSuccess($"{(clip.IsCut ? "Moved" : "Copied")} \"{clip.Item.Name}\".");
+
+            var verb = clip.IsCut ? "Moved" : "Copied";
+            var message = topLevelResolution switch
+            {
+                NameCollisionPolicy.Skip => $"Skipped \"{clip.Item.Name}\" — already exists.",
+                NameCollisionPolicy.Replace => $"{verb} \"{clip.Item.Name}\" (replaced existing).",
+                NameCollisionPolicy.Merge => $"{verb} \"{clip.Item.Name}\" (merged with existing folder).",
+                NameCollisionPolicy.GenerateUnique => $"{verb} \"{clip.Item.Name}\" as a new copy.",
+                _ => $"{verb} \"{clip.Item.Name}\"."
+            };
+            _notifications.ShowSuccess(message);
         }
         catch (OperationCanceledException)
         {
