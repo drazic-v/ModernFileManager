@@ -1,6 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Avalonia.Metadata;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
@@ -18,7 +20,10 @@ public partial class MainWindow : Window
 
     private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if(sender is DataGrid { DataContext: MainViewModel vm, SelectedItem: StorageItem item })
+        if (e.Source is not Visual source || source.FindAncestorOfType<DataGridRow>() is null)
+            return; // landed on the header or other chrome, not an actual row
+
+        if (sender is DataGrid { DataContext: MainViewModel vm, SelectedItem: StorageItem item })
             await vm.OpenItemAsync(item);
     }
 

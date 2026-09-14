@@ -162,7 +162,7 @@
                                 </DataGrid.ContextMenu>
 
                                 <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="Name" Width="300">
+                                    <DataGridTemplateColumn Header="Name" Width="300" SortMemberPath="Name">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="4,0"/>
