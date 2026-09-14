@@ -9,7 +9,8 @@ public readonly record struct ConflictDialogResult(NameCollisionPolicy Policy, b
 
 public partial class ConflictDialog : Window
 {
-    public ConflictDialogResult Result { get; private set; } = new(NameCollisionPolicy.Skip, false);
+    public ConflictDialogResult Result { get; private set; }
+    public bool WasCancelled { get; private set; } = true; // assume "closed without choosing" until proven otherwise
 
     public ConflictDialog() => InitializeComponent();
 
@@ -22,8 +23,10 @@ public partial class ConflictDialog : Window
     private void OnChoiceClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && Enum.TryParse<NameCollisionPolicy>(tag, out var policy))
+        {
             Result = new ConflictDialogResult(policy, ApplyToAllCheckBox.IsChecked == true);
-
+            WasCancelled = false;
+        }
         Close();
     }
 }
