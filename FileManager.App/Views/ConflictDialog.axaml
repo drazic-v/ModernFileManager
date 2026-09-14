@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FileManager.App.Views.ConflictDialog"
+        Width="400" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceBackgroundBrush}"
+        Title="File Conflict">
+    <StackPanel Margin="20" Spacing="16">
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap" FontWeight="Bold"/>
+        <CheckBox x:Name="ApplyToAllCheckBox" Content="Apply to all remaining conflicts"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Skip" Tag="Skip" Click="OnChoiceClick"/>
+            <Button x:Name="MergeButton" Content="Merge" Tag="Merge" Click="OnChoiceClick"/>
+            <Button Content="Replace" Tag="Replace" Click="OnChoiceClick"/>
+            <Button Content="Keep Both" Tag="GenerateUnique" Click="OnChoiceClick"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
