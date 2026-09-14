@@ -49,8 +49,8 @@ public partial class App : Application
             }))
             .BuildApp();
 
-            mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications);
-            desktop.MainWindow = mainWindow;
+            var conflictResolution = new ConflictResolutionService(mainWindow);
+            mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications, conflictResolution); desktop.MainWindow = mainWindow;
         }
         base.OnFrameworkInitializationCompleted();
     }

@@ -28,9 +28,12 @@ public class WorkspaceViewModel : ReactiveObject
 
     private readonly INotificationService _notifications;
 
-    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications)
+    private readonly IConflictResolutionService _conflictResolution;
+
+    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications, IConflictResolutionService conflictResolution)
     {
         _notifications = notifications;
+        _conflictResolution = conflictResolution;
         Tabs = new ObservableCollection<MainViewModel>();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
@@ -141,6 +144,18 @@ public class WorkspaceViewModel : ReactiveObject
         var transfer = new TransferViewModel(clip.Item.Name);
         ActiveTransfers.Add(transfer);
 
+        NameCollisionPolicy? remembered = null;
+        ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
+        {
+            if (remembered is { } r) return r;
+
+            var canMerge = clip.Item.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
+            var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, ct);
+
+            if (applyToAll) remembered = policy;
+            return policy;
+        };
+
         try
         {
             long totalBytes = clip.Item.Kind == StorageItemKind.Directory
@@ -153,9 +168,9 @@ public class WorkspaceViewModel : ReactiveObject
                 transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)p.BytesCopied / totalBytes * 100) : 100);
 
             if (clip.IsCut)
-                await clip.SourceProvider.MoveAsync(clip.Item.Path, target.CurrentFolder, progress: progress, ct: transfer.Token);
+                await clip.SourceProvider.MoveAsync(clip.Item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
             else
-                await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, progress: progress, ct: transfer.Token);
+                await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
 
             if (clip.IsCut) Clipboard = null;
             _notifications.ShowSuccess($"{(clip.IsCut ? "Moved" : "Copied")} \"{clip.Item.Name}\".");
