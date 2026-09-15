@@ -20,6 +20,7 @@
         <conv:ItemKindVisibilityConverter x:Key="ItemKindVisibility"/>
         <conv:BoolToWidthConverter x:Key="BoolToWidthConverter" OpenWidth="{StaticResource DetailsPanelWidth}"/>        
         <conv:GreaterThanZeroConverter x:Key="GreaterThanZero"/>
+        <conv:SelectionCountVisibilityConverter x:Key="SelectionCountVisibility"/>
     </Window.Resources>
 
     <Window.Styles>
@@ -251,29 +252,39 @@
            <StackPanel Width="{StaticResource DetailsPanelWidth}" Margin="0,16" Spacing="12"
             IsVisible="{Binding SelectedTab, Converter={x:Static objconv:ObjectConverters.IsNotNull}}">
 
-                <Border Classes="detail-card" Margin="16,0">
-                    <TextBlock Text="{Binding SelectedTab.SelectedItem.Name, FallbackValue='No item selected'}"
-                               FontWeight="Bold" FontSize="16" TextWrapping="Wrap" TextAlignment="Center"/>
+                <Border Classes="detail-card" Margin="16,0"
+                        IsVisible="{Binding SelectedTab.SelectedItems.Count, Converter={StaticResource SelectionCountVisibility}, ConverterParameter=None}">
+                    <TextBlock Text="No item selected" FontWeight="Bold" TextAlignment="Center"/>
                 </Border>
 
                 <Border Classes="detail-card" Margin="16,0"
-                        IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=File}">
+                        IsVisible="{Binding SelectedTab.SelectedItems.Count, Converter={StaticResource SelectionCountVisibility}, ConverterParameter=Single}">
+                    <TextBlock Text="{Binding SelectedTab.SelectedItem.Name}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Border>
+
+                <Border Classes="detail-card" Margin="16,0"
+                        IsVisible="{Binding SelectedTab.SelectedItems.Count, Converter={StaticResource SelectionCountVisibility}, ConverterParameter=Single}">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
-                        <TextBlock Text="{Binding SelectedTab.SelectedItem.SizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Size: {0}'}"/>
-                        <TextBlock Text="{Binding SelectedTab.SelectedItem.LastModifiedUtc, StringFormat='Modified: {0:g}'}"/>
+                        <StackPanel Spacing="8" IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=File}">
+                            <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
+                            <TextBlock Text="{Binding SelectedTab.SelectedItem.SizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Size: {0}'}"/>
+                            <TextBlock Text="{Binding SelectedTab.SelectedItem.LastModifiedUtc, StringFormat='Modified: {0:g}'}"/>
+                        </StackPanel>
+                        <StackPanel Spacing="8" IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=Directory}">
+                            <TextBlock Text="Calculating..." IsVisible="{Binding SelectedTab.IsFolderInfoLoading}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding SelectedTab.FolderSizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Total size: {0}'}"/>
+                            <TextBlock Text="{Binding SelectedTab.FolderFileCount, StringFormat='Files: {0}'}"/>
+                            <TextBlock Text="{Binding SelectedTab.FolderFolderCount, StringFormat='Folders: {0}'}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border Classes="detail-card" Margin="16,0"
-                        IsVisible="{Binding SelectedTab.SelectedItem, Converter={StaticResource ItemKindVisibility}, ConverterParameter=Directory}">
+                        IsVisible="{Binding SelectedTab.SelectedItems.Count, Converter={StaticResource SelectionCountVisibility}, ConverterParameter=Multiple}">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Calculating..." IsVisible="{Binding SelectedTab.IsFolderInfoLoading}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="{Binding SelectedTab.SelectedItem.Kind, StringFormat='Kind: {0}'}"/>
-                        <TextBlock Text="{Binding SelectedTab.FolderSizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Total size: {0}'}"/>
-                        <TextBlock Text="{Binding SelectedTab.FolderFileCount, StringFormat='Files: {0}'}"/>
-                        <TextBlock Text="{Binding SelectedTab.FolderFolderCount, StringFormat='Folders: {0}'}"/>
+                        <TextBlock Text="{Binding SelectedTab.SelectedItems.Count, StringFormat='{}{0} items selected'}" FontWeight="Bold" TextAlignment="Center"/>
+                        <TextBlock Text="Calculating..." IsVisible="{Binding SelectedTab.IsMultiSelectionSizeLoading}" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding SelectedTab.MultiSelectionSizeBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Total size: {0}'}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>

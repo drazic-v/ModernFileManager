@@ -1,4 +1,5 @@
 ﻿using Avalonia.Threading;
+using DynamicData.Kernel;
 using FileManager.App.Services;
 using FileManager.Core.Models;
 using FileManager.Core.Providers;
@@ -6,6 +7,7 @@ using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO.Pipes;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -51,6 +53,15 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public int? FolderFolderCount { get => _folderFolderCount; private set => this.RaiseAndSetIfChanged(ref _folderFolderCount, value); }
     public bool IsFolderInfoLoading { get => _isFolderInfoLoading; private set => this.RaiseAndSetIfChanged(ref _isFolderInfoLoading, value); }
 
+
+    private long? _multiSelectionSizeBytes;
+    public long? MultiSelectionSizeBytes { get => _multiSelectionSizeBytes; private set => this.RaiseAndSetIfChanged(ref _multiSelectionSizeBytes, value); }
+
+    private bool _isMultiSelectionSizeLoading;
+    public bool IsMultiSelectionSizeLoading { get => _isMultiSelectionSizeLoading; private set => this.RaiseAndSetIfChanged(ref _isMultiSelectionSizeLoading, value); }
+
+    private CancellationTokenSource? _multiSelectionCts;
+
     private bool _isDetailsPanelOpen = false;
 
     public bool IsDetailsPanelOpen
@@ -60,6 +71,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         {
             this.RaiseAndSetIfChanged(ref _isDetailsPanelOpen, value);
             _ = UpdateFolderInfoAsync();
+            _ = UpdateMultiSelectionInfoAsync();
         }
     }
 
@@ -80,12 +92,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     public StorageItem? SelectedItem
     {
         get => _selectedItem;
-        set
-        {
-            if (_selectedItem == value) return;
-            this.RaiseAndSetIfChanged(ref _selectedItem, value);
-            _ = UpdateFolderInfoAsync();
-        }
+        set => this.RaiseAndSetIfChanged(ref _selectedItem, value);
     }
 
     public bool ShowHiddenItems
@@ -139,6 +146,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         _currentFolder = startingFolder;
         _displayName = displayName;
         _notifications = notifications;
+        SelectedItems.CollectionChanged += OnSelectedItemsChanged;
         _tabName = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => $"{_displayName}: {folder.Name}").ToProperty(this, x => x.TabName);
         _displayPath = this.WhenAnyValue(x => x.CurrentFolder).Select(folder => TruncatePath(folder.Value, 50)).ToProperty(this, x => x.DisplayPath);
         NavigateUpCommand = ReactiveCommand.CreateFromTask(NavigateUpAsync);
@@ -148,6 +156,67 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         ClearSearchCommand = ReactiveCommand.CreateFromTask(ClearSearchAsync);
         OpenItemCommand = ReactiveCommand.CreateFromTask<StorageItem>(OpenItemAsync);
         _ = LoadAsync(startingFolder);
+    }
+
+    private void OnSelectedItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        _ = UpdateFolderInfoAsync();
+        _ = UpdateMultiSelectionInfoAsync();
+    }
+
+    private async Task UpdateMultiSelectionInfoAsync()
+    {
+        _multiSelectionCts?.Cancel();
+        _multiSelectionCts?.Dispose();
+        _multiSelectionCts = null;
+        MultiSelectionSizeBytes = null;
+
+        var items = SelectedItems.AsList();
+        if (!IsDetailsPanelOpen || items.Count <= 1) return;
+
+        _multiSelectionCts = new CancellationTokenSource();
+        var token = _multiSelectionCts.Token;
+        IsMultiSelectionSizeLoading = true;
+
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        try
+        {
+            long completedTotal = 0;
+            foreach (var item in items)
+            {
+                token.ThrowIfCancellationRequested();
+
+                if (item.Kind == StorageItemKind.Directory)
+                {
+                    var runningTotal = completedTotal;
+                    var progress = new Progress<FolderInfoCalculator.FolderInfo>(info =>
+                        MultiSelectionSizeBytes = runningTotal + info.Size);
+
+                    var result = await Task.Run(() => FolderInfoCalculator.GetFolderInfo(_provider, item.Path, progress, token), token);
+                    completedTotal += result.Size;
+                }
+                else
+                {
+                    completedTotal += item.SizeInBytes ?? 0;
+                }
+
+                MultiSelectionSizeBytes = completedTotal;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _notifications.ShowError($"Couldn't calculate selection size: {ex.Message}");
+            return;
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+                IsMultiSelectionSizeLoading = false;
+        }
     }
 
     private CancellationToken BeginNewOperation()
@@ -170,6 +239,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
                 {
                     Items.Clear();
                     SelectedItem = null;
+                    SelectedItems.Clear();
                     hasCleared = true;
                 }
                 if (_showHiddenItems || !StorageItemFilters.IsHidden(item))
@@ -191,6 +261,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
             // loop completed with zero items - a genuinely empty folder still needs to *look* empty
             Items.Clear();
             SelectedItem = null;
+            SelectedItems.Clear();
         }
 
         CurrentFolder = folder;
@@ -273,6 +344,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
 
         var token = BeginNewOperation();
         Items.Clear();
+        SelectedItems.Clear();
         IsSearchActive = true;
         await Dispatcher.Yield(DispatcherPriority.Background); // let the Cancel button actually paint before the heavy work starts
 
@@ -315,8 +387,9 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         FolderFileCount = null;
         FolderFolderCount = null;
 
-        if (!IsDetailsPanelOpen || SelectedItem is not { Kind: StorageItemKind.Directory } folder)
+        if (!IsDetailsPanelOpen || SelectedItems.Count != 1 || SelectedItems[0].Kind != StorageItemKind.Directory)
             return;
+        var folder = SelectedItems[0];
 
         _folderInfoCts = new CancellationTokenSource();
         var token = _folderInfoCts.Token;
@@ -434,5 +507,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
         _currentOperationCts?.Dispose();
         _folderInfoCts?.Cancel();
         _folderInfoCts?.Dispose();
+        _multiSelectionCts?.Cancel();
+        _multiSelectionCts?.Dispose();
     }
 }
