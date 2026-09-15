@@ -27,6 +27,7 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
     private readonly IStorageProvider _provider;
     private StoragePath _currentFolder;
     private StorageItem? _selectedItem;
+    public ObservableCollection<StorageItem> SelectedItems { get; } = new();
     private readonly Stack<StoragePath> _backStack = new();
     private readonly Stack<StoragePath> _forwardStack = new();
 

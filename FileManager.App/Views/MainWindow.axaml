@@ -149,7 +149,9 @@
                                       IsReadOnly="False"
                                       CellEditEnding="OnCellEditEnding"
                                       BeginningEdit="OnBeginningEdit"
-                                      GridLinesVisibility="Horizontal">
+                                      GridLinesVisibility="Horizontal"
+                                      SelectionMode="Extended"
+                                      SelectionChanged="OnSelectionChanged">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu x:CompileBindings="False">
                                         <MenuItem Header="New Folder" 

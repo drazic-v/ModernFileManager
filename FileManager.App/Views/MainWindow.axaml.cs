@@ -117,4 +117,14 @@ public partial class MainWindow : Window
         if (DataContext is WorkspaceViewModel workspace)
             _ = workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
     }
+
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not DataGrid { DataContext: MainViewModel tab }) return;
+
+        foreach (StorageItem item in e.RemovedItems)
+            tab.SelectedItems.Remove(item);
+        foreach (StorageItem item in e.AddedItems)
+            tab.SelectedItems.Add(item);
+    }
 }
