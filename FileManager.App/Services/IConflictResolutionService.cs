@@ -6,5 +6,5 @@ namespace FileManager.App.Services;
 
 public interface IConflictResolutionService
 {
-    Task<(NameCollisionPolicy Policy, bool ApplyToAll)> ResolveAsync(string itemName, bool canMerge, CancellationToken ct);
+    Task<(NameCollisionPolicy Policy, bool ApplyToAll)> ResolveAsync(string itemName, bool canMerge, bool isSelfReferential, CancellationToken ct);
 }

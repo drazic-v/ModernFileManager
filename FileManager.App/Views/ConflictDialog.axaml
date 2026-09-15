@@ -11,8 +11,7 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Skip" Tag="Skip" Click="OnChoiceClick"/>
             <Button x:Name="MergeButton" Content="Merge" Tag="Merge" Click="OnChoiceClick"/>
-            <Button Content="Replace" Tag="Replace" Click="OnChoiceClick"/>
-            <Button Content="Keep Both" Tag="GenerateUnique" Click="OnChoiceClick"/>
+            <Button x:Name="ReplaceButton" Content="Replace" Tag="Replace" Click="OnChoiceClick"/>            <Button Content="Keep Both" Tag="GenerateUnique" Click="OnChoiceClick"/>
         </StackPanel>
     </StackPanel>
 </Window>

@@ -154,8 +154,9 @@ public class WorkspaceViewModel : ReactiveObject
                 return r;
             }
 
+            var isSelfReferential = StoragePath.PathsEqual(destinationPath, clip.Item.Path);
             var canMerge = clip.Item.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
-            var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, ct);
+            var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, isSelfReferential, ct);
 
             if (destinationPath.Name == clip.Item.Name) topLevelResolution = policy;
             if (applyToAll) remembered = policy;

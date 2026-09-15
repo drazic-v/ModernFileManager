@@ -14,10 +14,19 @@ public partial class ConflictDialog : Window
 
     public ConflictDialog() => InitializeComponent();
 
-    public ConflictDialog(string itemName, bool canMerge) : this()
+    public ConflictDialog(string itemName, bool canMerge, bool isSelfReferential) : this()
     {
-        MessageText.Text = $"\"{itemName}\" already exists at the destination. What would you like to do?";
-        MergeButton.IsVisible = canMerge;
+        if (isSelfReferential)
+        {
+            MessageText.Text = $"\"{itemName}\" is already here — this would paste it back into its own original location.";
+            ReplaceButton.IsVisible = false;
+            MergeButton.IsVisible = false;
+        }
+        else
+        {
+            MessageText.Text = $"\"{itemName}\" already exists at the destination. What would you like to do?";
+            MergeButton.IsVisible = canMerge;
+        }
     }
 
     private void OnChoiceClick(object? sender, RoutedEventArgs e)
