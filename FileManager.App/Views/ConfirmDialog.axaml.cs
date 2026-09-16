@@ -22,7 +22,7 @@ public partial class ConfirmDialog : Window
         if (itemNames.Count > 1)
         {
             ItemListControl.ItemsSource = itemNames;
-            ItemListScroll.IsVisible = true;
+            ItemListBorder.IsVisible = true;
         }
     }
 

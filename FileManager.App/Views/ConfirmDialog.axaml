@@ -7,22 +7,31 @@
         Title="ConfirmDialog"
         Width="360" SizeToContent="Height" 
         CanResize="False" MaxHeight="450"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SurfaceBackgroundBrush}">
-  <StackPanel Margin="20" Spacing="16">
-        <TextBlock x:Name="MessageText" TextWrapping="Wrap"/>
-        <ScrollViewer x:Name="ItemListScroll" MaxHeight="200" IsVisible="False">
-            <ItemsControl x:Name="ItemListControl">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" Margin="0,2"/>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        WindowStartupLocation="CenterOwner">
+    <Window.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="{DynamicResource AppBackgroundRaw}" Offset="0"/>
+            <GradientStop Color="{DynamicResource SurfaceBackgroundRaw}" Offset="1"/>
+        </LinearGradientBrush>
+    </Window.Background>
+    <StackPanel Margin="16" Spacing="12">
+        <Border Classes="detail-card">
+            <TextBlock x:Name="MessageText" TextWrapping="Wrap" FontWeight="Bold" FontSize="15" TextAlignment="Center"/>
+        </Border>
+        <Border x:Name="ItemListBorder" Classes="detail-card" IsVisible="False" MaxHeight="220">
+            <ScrollViewer>
+                <ItemsControl x:Name="ItemListControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Margin="0,3" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Cancel" Click="OnCancelClick"/>
             <Button Content="Delete" Classes="danger-hover" Click="OnConfirmClick"/>
         </StackPanel>
-  </StackPanel>
+    </StackPanel>
 </Window>

@@ -3,15 +3,23 @@
         x:Class="FileManager.App.Views.ConflictDialog"
         Width="400" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SurfaceBackgroundBrush}"
         Title="File Conflict">
-    <StackPanel Margin="20" Spacing="16">
-        <TextBlock x:Name="MessageText" TextWrapping="Wrap" FontWeight="Bold"/>
+    <Window.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="{DynamicResource AppBackgroundRaw}" Offset="0"/>
+            <GradientStop Color="{DynamicResource SurfaceBackgroundRaw}" Offset="1"/>
+        </LinearGradientBrush>
+    </Window.Background>
+    <StackPanel Margin="16" Spacing="12">
+        <Border Classes="detail-card">
+            <TextBlock x:Name="MessageText" TextWrapping="Wrap" FontWeight="Bold" FontSize="15" TextAlignment="Center"/>
+        </Border>
         <CheckBox x:Name="ApplyToAllCheckBox" Content="Apply to all remaining conflicts"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Skip" Tag="Skip" Click="OnChoiceClick"/>
             <Button x:Name="MergeButton" Content="Merge" Tag="Merge" Click="OnChoiceClick"/>
-            <Button x:Name="ReplaceButton" Content="Replace" Tag="Replace" Click="OnChoiceClick"/>            <Button Content="Keep Both" Tag="GenerateUnique" Click="OnChoiceClick"/>
+            <Button x:Name="ReplaceButton" Content="Replace" Tag="Replace" Classes="danger-hover" Click="OnChoiceClick"/>
+            <Button Content="Keep Both" Tag="GenerateUnique" Click="OnChoiceClick"/>
         </StackPanel>
     </StackPanel>
 </Window>
