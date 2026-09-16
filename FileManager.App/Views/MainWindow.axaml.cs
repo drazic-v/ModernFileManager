@@ -2,10 +2,11 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 using Avalonia.Metadata;
+using Avalonia.VisualTree;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -126,5 +127,17 @@ public partial class MainWindow : Window
             tab.SelectedItems.Remove(item);
         foreach (StorageItem item in e.AddedItems)
             tab.SelectedItems.Add(item);
+    }
+
+    private void OnCutMenuItemClick(object? sender, RoutedEventArgs e) => HandleClipboardAdd(sender, isCut: true);
+    private void OnCopyMenuItemClick(object? sender, RoutedEventArgs e) => HandleClipboardAdd(sender, isCut: false);
+
+    private void HandleClipboardAdd(object? sender, bool isCut)
+    {
+        if (sender is not MenuItem { Tag: MainViewModel tab, CommandParameter: StorageItem item }) return;
+        if (DataContext is not WorkspaceViewModel workspace) return;
+
+        var items = tab.SelectedItems.Contains(item) ? tab.SelectedItems.ToList() : new List<StorageItem> { item };
+        workspace.SetClipboard(items, tab.Provider, isCut);
     }
 }

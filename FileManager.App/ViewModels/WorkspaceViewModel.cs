@@ -3,6 +3,7 @@ using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using ReactiveUI;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
@@ -22,8 +23,6 @@ public class WorkspaceViewModel : ReactiveObject
         private set => this.RaiseAndSetIfChanged(ref _clipboard, value);
     }
 
-    public ReactiveCommand<StorageItem, Unit> CopyToClipboardCommand { get; }
-    public ReactiveCommand<StorageItem, Unit> CutToClipboardCommand { get; }
     public ReactiveCommand<Unit, Unit> PasteCommand { get; }
 
     private readonly INotificationService _notifications;
@@ -48,8 +47,6 @@ public class WorkspaceViewModel : ReactiveObject
         OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder, entry.DisplayName));
         AddProviderCommand = ReactiveCommand.Create(() => { /* TODO: open a connect-provider window once a second provider type exists */ });
 
-        CopyToClipboardCommand = ReactiveCommand.Create<StorageItem>(item => SetClipboard(item, isCut: false));
-        CutToClipboardCommand = ReactiveCommand.Create<StorageItem>(item => SetClipboard(item, isCut: true));
         PasteCommand = ReactiveCommand.CreateFromTask(PasteAsync,
             this.WhenAnyValue(x => x.Clipboard, x => x.SelectedTab,
                 (clip, tab) => clip is not null && tab is not null && clip.SourceProvider == tab.Provider));
@@ -112,92 +109,142 @@ public class WorkspaceViewModel : ReactiveObject
             await tab.RefreshAsync();
     }
 
-    private void SetClipboard(StorageItem item, bool isCut)
+    public void SetClipboard(IReadOnlyList<StorageItem> items, IStorageProvider provider, bool isCut)
     {
-        var provider = Providers.FirstOrDefault(p => p.Provider.ProviderId == item.Path.ProviderId)?.Provider;
-        if (provider is null) return;
-        Clipboard = new ClipboardEntry(item, provider, isCut);
+        if (items.Count == 0) return;
+        Clipboard = new ClipboardEntry(items, provider, isCut);
     }
 
     private async Task PasteAsync()
     {
         if (Clipboard is not { } clip || SelectedTab is not { } target) return;
-
         if (clip.SourceProvider.ProviderId != target.Provider.ProviderId)
-        {
             return; // TODO: route through TransferManager's stream-pump path once it exists
+
+        var itemsToProcess = new List<StorageItem>();
+        foreach (var item in clip.Items)
+        {
+            if (clip.IsCut && item.Path.Parent() is { } itemParent && StoragePath.PathsEqual(itemParent, target.CurrentFolder))
+            {
+                _notifications.ShowError($"Can't move \"{item.Name}\" to its original location.");
+                continue;
+            }
+
+            if (item.Kind == StorageItemKind.Directory && StoragePath.PathsEqual(target.CurrentFolder, item.Path))
+            {
+                _notifications.ShowError($"Can't paste \"{item.Name}\" into itself.");
+                continue;
+            }
+
+            itemsToProcess.Add(item);
         }
 
-        if (clip.IsCut && clip.Item.Path.Parent() is { } sourceParent && StoragePath.PathsEqual(sourceParent, target.CurrentFolder))
+        if (itemsToProcess.Count == 0)
         {
-            _notifications.ShowError($"Can't move \"{clip.Item.Name}\" to the same folder.");
-            Clipboard = null; // already exactly here - nothing to do
+            if (clip.IsCut) Clipboard = null;
             return;
         }
 
-        if (clip.Item.Kind == StorageItemKind.Directory && StoragePath.IsSameOrDescendant(target.CurrentFolder, clip.Item.Path))
-        {
-            _notifications.ShowError($"Can't paste \"{clip.Item.Name}\" into itself.");
-            return;
-        }
-
-        var transfer = new TransferViewModel(clip.Item.Name);
+        var transfer = new TransferViewModel(itemsToProcess.Count == 1 ? itemsToProcess[0].Name : $"{itemsToProcess.Count} items");
         ActiveTransfers.Add(transfer);
 
         NameCollisionPolicy? remembered = null;
-        NameCollisionPolicy? topLevelResolution = null;
+        StorageItem? currentItem = null;
+        var itemResolutions = new Dictionary<StorageItem, NameCollisionPolicy>();
+
         ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
         {
             if (remembered is { } r)
             {
-                if (destinationPath.Name == clip.Item.Name) topLevelResolution = r;
+                if (currentItem is not null && destinationPath.Name == currentItem.Name)
+                    itemResolutions[currentItem] = r;
                 return r;
             }
 
-            var isSelfReferential = StoragePath.PathsEqual(destinationPath, clip.Item.Path);
-            var canMerge = clip.Item.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
+            var isSelfReferential = currentItem is not null && StoragePath.PathsEqual(destinationPath, currentItem.Path);
+            var canMerge = currentItem?.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
             var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, isSelfReferential, ct);
 
-            if (destinationPath.Name == clip.Item.Name) topLevelResolution = policy;
+            if (currentItem is not null && destinationPath.Name == currentItem.Name)
+                itemResolutions[currentItem] = policy;
             if (applyToAll) remembered = policy;
             return policy;
         };
 
+        var succeeded = new List<StorageItem>();
+        var skipped = new List<StorageItem>();
+        var failed = new List<string>();
+
         try
         {
-            long totalBytes = clip.Item.Kind == StorageItemKind.Directory
-                ? (await FolderInfoCalculator.GetFolderInfo(clip.SourceProvider, clip.Item.Path, ct: transfer.Token)).Size
-                : clip.Item.SizeInBytes ?? 0;
-
+            transfer.IsMeasuring = true;
+            var itemSizes = new List<long>();
+            foreach (var item in itemsToProcess)
+            {
+                itemSizes.Add(item.Kind == StorageItemKind.Directory
+                    ? (await FolderInfoCalculator.GetFolderInfo(clip.SourceProvider, item.Path, ct: transfer.Token)).Size
+                    : item.SizeInBytes ?? 0);
+            }
+            var totalBytes = itemSizes.Sum();
             transfer.IsMeasuring = false;
 
-            var progress = new Progress<TransferProgress>(p =>
-                transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)p.BytesCopied / totalBytes * 100) : 100);
+            long offsetBytes = 0;
+            for (var i = 0; i < itemsToProcess.Count; i++)
+            {
+                var item = itemsToProcess[i];
+                currentItem = item;
+                var itemOffset = offsetBytes;
 
-            if (clip.IsCut)
-                await clip.SourceProvider.MoveAsync(clip.Item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
-            else
-                await clip.SourceProvider.CopyAsync(clip.Item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
+                var progress = new Progress<TransferProgress>(p =>
+                    transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)(itemOffset + p.BytesCopied) / totalBytes * 100) : 100);
+
+                try
+                {
+                    if (clip.IsCut)
+                        await clip.SourceProvider.MoveAsync(item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
+                    else
+                        await clip.SourceProvider.CopyAsync(item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
+
+                    if (itemResolutions.TryGetValue(item, out var resolution) && resolution == NameCollisionPolicy.Skip)
+                        skipped.Add(item);
+                    else
+                        succeeded.Add(item);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw; // cancellation stops the whole batch, unlike a per-item failure
+                }
+                catch (Exception ex)
+                {
+                    failed.Add($"{item.Name}: {ex.Message}");
+                }
+
+                offsetBytes += itemSizes[i];
+                transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)offsetBytes / totalBytes * 100) : 100;
+            }
 
             if (clip.IsCut) Clipboard = null;
 
-            var verb = clip.IsCut ? "Moved" : "Copied";
-            var message = topLevelResolution switch
-            {
-                NameCollisionPolicy.Skip => $"Skipped \"{clip.Item.Name}\" — already exists.",
-                NameCollisionPolicy.Replace => $"{verb} \"{clip.Item.Name}\" (replaced existing).",
-                NameCollisionPolicy.Merge => $"{verb} \"{clip.Item.Name}\" (merged with existing folder).",
-                NameCollisionPolicy.GenerateUnique => $"{verb} \"{clip.Item.Name}\" as a new copy.",
-                _ => $"{verb} \"{clip.Item.Name}\"."
-            };
-            _notifications.ShowSuccess(message);
+            var verb = clip.IsCut ? "moved" : "copied";
+            var parts = new List<string>();
+
+            if (succeeded.Count > 0)
+                parts.Add(succeeded.Count == 1 ? $"{verb} \"{succeeded[0].Name}\"" : $"{verb} {succeeded.Count} items");
+            if (skipped.Count > 0)
+                parts.Add(skipped.Count == 1 ? $"skipped \"{skipped[0].Name}\" (already exists)" : $"skipped {skipped.Count} items (already exist)");
+            if (failed.Count > 0)
+                parts.Add(failed.Count == 1 ? "1 failed" : $"{failed.Count} failed");
+
+            var message = string.Join(", ", parts);
+            message = char.ToUpper(message[0]) + message[1..] + ".";
+
+            if (failed.Count > 0)
+                _notifications.ShowError($"{message} First error: {failed[0]}");
+            else
+                _notifications.ShowSuccess(message);
         }
         catch (OperationCanceledException)
         {
-        }
-        catch (Exception ex)
-        {
-            _notifications.ShowError($"Couldn't paste \"{clip.Item.Name}\": {ex.Message}");
         }
         finally
         {
@@ -208,7 +255,7 @@ public class WorkspaceViewModel : ReactiveObject
         await target.RefreshAsync();
         await RefreshTabsViewingAsync(target, target.CurrentFolder);
 
-        if (clip.IsCut && clip.Item.Path.Parent() is { } parentSource)
-            await RefreshTabsViewingAsync(target, parentSource);
+        if (clip.IsCut && clip.Items[0].Path.Parent() is { } sourceParent)
+            await RefreshTabsViewingAsync(target, sourceParent);
     }
 }

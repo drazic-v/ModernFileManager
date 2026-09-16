@@ -35,12 +35,14 @@
                               Tag="{Binding $parent[DataGrid]}" 
                               Click="OnNewFolderMenuItemClick"/>
                     <Separator/>
-                    <MenuItem Header="Cut"
-                              Command="{Binding $parent[Window].DataContext.CutToClipboardCommand}"
-                              CommandParameter="{Binding}"/>
-                    <MenuItem Header="Copy"
-                              Command="{Binding $parent[Window].DataContext.CopyToClipboardCommand}"
-                              CommandParameter="{Binding}"/>
+                    <MenuItem Header="Cut" 
+                              Tag="{Binding $parent[DataGrid].DataContext}" 
+                              CommandParameter="{Binding}" 
+                              Click="OnCutMenuItemClick"/>
+                    <MenuItem Header="Copy" 
+                              Tag="{Binding $parent[DataGrid].DataContext}" 
+                              CommandParameter="{Binding}" 
+                              Click="OnCopyMenuItemClick"/>
                     <MenuItem Header="Paste"
                               Command="{Binding $parent[Window].DataContext.PasteCommand}"/>
                     <Separator/>

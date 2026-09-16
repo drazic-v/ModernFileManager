@@ -1,5 +1,6 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
+using System.Collections.Generic;
 
 namespace FileManager.App.ViewModels;
 
@@ -7,14 +8,14 @@ namespace FileManager.App.ViewModels;
 // so Paste can tell whether a same-provider CopyAsync/MoveAsync is even valid yet.
 public class ClipboardEntry
 {
-    public ClipboardEntry(StorageItem item, IStorageProvider sourceProvider, bool isCut)
+    public ClipboardEntry(IReadOnlyList<StorageItem> items, IStorageProvider sourceProvider, bool isCut)
     {
-        Item = item;
+        Items = items;
         SourceProvider = sourceProvider;
         IsCut = isCut;
     }
 
-    public StorageItem Item { get; }
+    public IReadOnlyList<StorageItem> Items { get; }
     public IStorageProvider SourceProvider { get; }
     public bool IsCut { get; }
 }
