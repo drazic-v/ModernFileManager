@@ -42,9 +42,16 @@ public partial class MainWindow : Window
     {
         if (sender is not MenuItem { Tag: MainViewModel tab, CommandParameter: StorageItem item }) return;
 
-        var dialog = new ConfirmDialog($"Delete \"{item.Name}\"? This can't be undone.");
-        if (await dialog.ShowDialog<bool>(this)){
-            await tab.DeleteItemAsync(item);
+        var items = tab.SelectedItems.Contains(item) ? tab.SelectedItems.ToList() : new List<StorageItem> { item };
+
+        var message = items.Count == 1
+            ? $"Delete \"{items[0].Name}\"? This can't be undone."
+            : $"Delete these {items.Count} items? This can't be undone.";
+
+        var dialog = new ConfirmDialog(message, items.Select(i => i.Name).ToList());
+        if (await dialog.ShowDialog<bool>(this))
+        {
+            await tab.DeleteItemsAsync(items);
             if (DataContext is WorkspaceViewModel workspace)
                 await workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
         }

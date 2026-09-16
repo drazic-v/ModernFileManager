@@ -446,20 +446,42 @@ public abstract class ViewModelBase : ReactiveObject, IDisposable
             return;
         }
     }
-    public async Task DeleteItemAsync(StorageItem item)
+    public async Task DeleteItemsAsync(IReadOnlyList<StorageItem> items)
     {
-        try
+        var succeeded = new List<StorageItem>();
+        var failed = new List<string>();
+
+        foreach (var item in items)
         {
-            await _provider.DeleteAsync(item.Path);
+            try
+            {
+                await _provider.DeleteAsync(item.Path);
+                succeeded.Add(item);
+            }
+            catch (Exception ex)
+            {
+                failed.Add($"{item.Name}: {ex.Message}");
+            }
+        }
+
+        foreach (var item in succeeded)
+        {
             Items.Remove(item);
+            SelectedItems.Remove(item);
             if (SelectedItem == item) SelectedItem = null;
         }
-        catch (Exception ex)
+
+        if (failed.Count > 0)
         {
-            _notifications.ShowError($"Couldn't delete \"{item.Name}\": {ex.Message}");
-            return; 
+            var message = succeeded.Count == 0
+                ? $"Nothing could be deleted. First error: {failed[0]}"
+                : $"Deleted {succeeded.Count} item(s), {failed.Count} failed. First error: {failed[0]}";
+            _notifications.ShowError(message);
         }
-        
+        else
+        {
+            _notifications.ShowSuccess(succeeded.Count == 1 ? $"Deleted \"{succeeded[0].Name}\"." : $"Deleted {succeeded.Count} items.");
+        }
     }
 
     public async Task<StorageItem?> CreateFolderAsync()
