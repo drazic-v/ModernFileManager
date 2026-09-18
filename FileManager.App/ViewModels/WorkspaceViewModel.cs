@@ -49,7 +49,7 @@ public class WorkspaceViewModel : ReactiveObject
 
         PasteCommand = ReactiveCommand.CreateFromTask(PasteAsync,
             this.WhenAnyValue(x => x.Clipboard, x => x.SelectedTab,
-                (clip, tab) => clip is not null && tab is not null && clip.SourceProvider == tab.Provider));
+                (clip, tab) => clip is not null && tab is not null && clip.SourceProvider.ProviderId == tab.Provider.ProviderId));
     }
 
     public ObservableCollection<MainViewModel> Tabs { get; }
@@ -115,6 +115,9 @@ public class WorkspaceViewModel : ReactiveObject
         Clipboard = new ClipboardEntry(items, provider, isCut);
     }
 
+    private static bool IsApplicable(NameCollisionPolicy policy, StorageItemKind conflictingKind) =>
+    policy != NameCollisionPolicy.Merge || conflictingKind == StorageItemKind.Directory;
+
     private async Task PasteAsync()
     {
         if (Clipboard is not { } clip || SelectedTab is not { } target) return;
@@ -154,7 +157,7 @@ public class WorkspaceViewModel : ReactiveObject
 
         ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
         {
-            if (remembered is { } r)
+            if (remembered is { } r && IsApplicable(r, conflictingKind))
             {
                 if (currentItem is not null && destinationPath.Name == currentItem.Name)
                     itemResolutions[currentItem] = r;

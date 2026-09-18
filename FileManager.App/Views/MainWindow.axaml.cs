@@ -157,8 +157,6 @@ public partial class MainWindow : Window
 
     private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine($"KeyDown: Key={e.Key}, Modifiers={e.KeyModifiers}, Source={e.Source?.GetType().Name}");
-
         if (e.Source is TextBox) return; // let text editing (search box, rename box) handle its own shortcuts
 
         if (DataContext is not WorkspaceViewModel workspace || workspace.SelectedTab is not { } tab) return;
