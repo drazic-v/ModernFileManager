@@ -12,7 +12,8 @@
         x:DataType="vm:WorkspaceViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="FileManager.App"
-        Background="{DynamicResource AppBackgroundBrush}">
+        Background="{DynamicResource AppBackgroundBrush}"
+        KeyDown="OnWindowKeyDown">
 
     <Window.Resources>
         <x:Double x:Key="DetailsPanelWidth">300</x:Double>
@@ -154,7 +155,8 @@
                                       BeginningEdit="OnBeginningEdit"
                                       GridLinesVisibility="Horizontal"
                                       SelectionMode="Extended"
-                                      SelectionChanged="OnSelectionChanged">
+                                      SelectionChanged="OnSelectionChanged"
+                                      ClipboardCopyMode="None">
                                 <DataGrid.ContextMenu>
                                     <ContextMenu x:CompileBindings="False">
                                         <MenuItem Header="New Folder" 

@@ -6,9 +6,11 @@ using Avalonia.Metadata;
 using Avalonia.VisualTree;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace FileManager.App.Views;
 
@@ -41,8 +43,13 @@ public partial class MainWindow : Window
     private async void OnDeleteMenuItemClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: MainViewModel tab, CommandParameter: StorageItem item }) return;
-
         var items = tab.SelectedItems.Contains(item) ? tab.SelectedItems.ToList() : new List<StorageItem> { item };
+        await DeleteWithConfirmationAsync(tab, items);
+    }
+
+    private async Task DeleteWithConfirmationAsync(MainViewModel tab, IReadOnlyList<StorageItem> items)
+    {
+        if (items.Count == 0) return;
 
         var message = items.Count == 1
             ? $"Delete \"{items[0].Name}\"? This can't be undone."
@@ -146,5 +153,38 @@ public partial class MainWindow : Window
 
         var items = tab.SelectedItems.Contains(item) ? tab.SelectedItems.ToList() : new List<StorageItem> { item };
         workspace.SetClipboard(items, tab.Provider, isCut);
+    }
+
+    private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine($"KeyDown: Key={e.Key}, Modifiers={e.KeyModifiers}, Source={e.Source?.GetType().Name}");
+
+        if (e.Source is TextBox) return; // let text editing (search box, rename box) handle its own shortcuts
+
+        if (DataContext is not WorkspaceViewModel workspace || workspace.SelectedTab is not { } tab) return;
+
+        var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+        if (ctrl && e.Key == Key.C && tab.SelectedItems.Count > 0)
+        {
+            workspace.SetClipboard(tab.SelectedItems.ToList(), tab.Provider, isCut: false);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.X && tab.SelectedItems.Count > 0)
+        {
+            workspace.SetClipboard(tab.SelectedItems.ToList(), tab.Provider, isCut: true);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.V)
+        {
+            if (((ICommand)workspace.PasteCommand).CanExecute(null))
+                workspace.PasteCommand.Execute().Subscribe();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete && tab.SelectedItems.Count > 0)
+        {
+            await DeleteWithConfirmationAsync(tab, tab.SelectedItems.ToList());
+            e.Handled = true;
+        }
     }
 }
