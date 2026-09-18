@@ -87,5 +87,19 @@ namespace FileManager.Infrastructure.Tests.Providers
             Assert.Equal("test.txt", item.Name);
             Assert.True(File.Exists(filePath)); // still there under the original name, not bumped to "test (2).txt"
         }
+
+        [Fact]
+        public async Task RenameAsync_ToNameTakenByOriginal_RevertsToOwnCurrentName()
+        {
+            var originalPath = Path.Combine(_tempDir, "test.txt");
+            await File.WriteAllTextAsync(originalPath, "original");
+            var copyPath = Path.Combine(_tempDir, "test (2).txt");
+            await File.WriteAllTextAsync(copyPath, "copy");
+
+            var item = await _provider.RenameAsync(PathFor(copyPath), "test.txt");
+
+            Assert.Equal("test (2).txt", item.Name);
+            Assert.True(File.Exists(copyPath));
+        }
     }
 }

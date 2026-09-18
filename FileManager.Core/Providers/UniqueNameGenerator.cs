@@ -12,6 +12,7 @@ namespace FileManager.Core.Providers
         StoragePath parentFolder,
         string desiredName,
         StorageItemKind type,
+        string? excludeName = null,
         CancellationToken ct = default)
         {
             var extension = type == StorageItemKind.File ? Path.GetExtension(desiredName) : "";
@@ -23,6 +24,7 @@ namespace FileManager.Core.Providers
             await foreach (var item in provider.ListAsync(parentFolder, ct))
             {
                 ct.ThrowIfCancellationRequested();
+                if (item.Name == excludeName) continue; // this is the item being renamed, under the name it's about to leave
                 existingNames.Add(item.Name);
             }
 

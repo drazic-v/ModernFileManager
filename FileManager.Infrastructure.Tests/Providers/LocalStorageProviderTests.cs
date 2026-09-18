@@ -31,5 +31,14 @@ namespace FileManager.Infrastructure.Tests.Providers
 
         private static StoragePath PathFor(string nativePath) =>
         new StoragePath { ProviderId = "local", Value = nativePath.Replace('\\', '/') };
+
+        [Theory]
+        [InlineData("C:", "C:\\")]
+        [InlineData("C:/Users", "C:\\Users")]
+        [InlineData("D:", "D:\\")]
+        public void ToNativePath_OnBareDriveLetter_AppendsTrailingSeparator(string value, string expectedNative)
+        {
+            Assert.Equal(expectedNative, LocalStorageProvider.ToNativePath(value));
+        }
     }
 }

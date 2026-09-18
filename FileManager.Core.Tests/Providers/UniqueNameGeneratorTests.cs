@@ -60,5 +60,20 @@ namespace FileManager.Core.Tests.Providers
 
             Assert.Equal("notes (2)", result);
         }
+
+        [Fact]
+        public async Task GenerateAsync_WithExcludeName_IgnoresThatNameWhenCheckingForCollisions()
+        {
+            var provider = new FakeStorageProvider();
+            var parent = new StoragePath { ProviderId = "fake", Value = "/root" };
+            provider.AddChildren("/root",
+                MakeItem(parent, "test.txt", StorageItemKind.File),
+                MakeItem(parent, "test (2).txt", StorageItemKind.File));
+
+            var result = await UniqueNameGenerator.GenerateAsync(
+                provider, parent, "test.txt", StorageItemKind.File, excludeName: "test (2).txt");
+
+            Assert.Equal("test (2).txt", result);
+        }
     }
 }

@@ -15,8 +15,15 @@ namespace FileManager.Infrastructure.Providers
         public string ProviderId { get; } = "local";
 
         // Converts a StoragePath value to a native path string for the current OS.
-        internal static string ToNativePath(string value) =>
-        OperatingSystem.IsWindows() ? value.Replace('/', '\\') : value;
+        internal static string ToNativePath(string value)
+        {
+            var native = OperatingSystem.IsWindows() ? value.Replace('/', '\\') : value;
+            // "C:" means "current directory on drive C" to Windows, not the root -
+            // a bare drive letter always has to mean the true root here.
+            if (OperatingSystem.IsWindows() && native.Length == 2 && native[1] == ':')
+                native += '\\';
+            return native;
+        }
 
         // Converts a native path string to a StoragePath value.
         internal static string ToStoragePathValue(string nativePath) =>
@@ -92,7 +99,7 @@ namespace FileManager.Infrastructure.Providers
                             break;
                         case NameCollisionPolicy.GenerateUnique:
                             var destFolder = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(destinationDir) };
-                            var uniqueName = await UniqueNameGenerator.GenerateAsync(this, destFolder, Path.GetFileName(file), StorageItemKind.File, ct);
+                            var uniqueName = await UniqueNameGenerator.GenerateAsync(this, destFolder, Path.GetFileName(file), StorageItemKind.File, null, ct);
                             destFile = Path.Combine(destinationDir, uniqueName);
                             if (isMove) File.Move(file, destFile); else File.Copy(file, destFile);
                             break;
@@ -197,7 +204,7 @@ namespace FileManager.Infrastructure.Providers
             if(!FileNameValidator.IsValid(name))
                 throw new ArgumentException("Name is not valid.", nameof(name));
 
-            name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, ct); // Ensure unique name
+            name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory,null, ct); // Ensure unique name
             
             var childPath = parent.Combine(name);
             var childNativePath = ToNativePath(childPath.Value);
@@ -233,7 +240,7 @@ namespace FileManager.Infrastructure.Providers
                 return await GetInfoAsync(path, ct);
 
             var parentPath = path.Parent() ?? throw new InvalidOperationException("Cannot rename a root item.");
-            newName = await UniqueNameGenerator.GenerateAsync(this, parentPath, newName, kind, ct);
+            newName = await UniqueNameGenerator.GenerateAsync(this, parentPath, newName, kind, excludeName: path.Name, ct: ct);
 
             var newPath = parentPath.Combine(newName);
             var newNativePath = ToNativePath(newPath.Value);
@@ -286,7 +293,7 @@ namespace FileManager.Infrastructure.Providers
             switch (policy)
             {
                 case NameCollisionPolicy.GenerateUnique:
-                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
+                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, null, ct);
                     destinationPath = destinationFolder.Combine(newName);
                     nativeDestination = ToNativePath(destinationPath.Value);
                     await CopyItemAsync(nativeSource, nativeDestination, kind, progress, ct);
@@ -365,7 +372,7 @@ namespace FileManager.Infrastructure.Providers
             switch (policy)
             {
                 case NameCollisionPolicy.GenerateUnique:
-                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, ct);
+                    var newName = await UniqueNameGenerator.GenerateAsync(this, destinationFolder, source.Name, kind, null, ct);
                     destinationPath = destinationFolder.Combine(newName);
                     nativeDestination = ToNativePath(destinationPath.Value);
                     await MoveItemAsync(nativeSource, nativeDestination, kind, progress, ct);
