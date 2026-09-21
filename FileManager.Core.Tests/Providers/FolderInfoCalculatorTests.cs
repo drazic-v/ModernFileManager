@@ -1,6 +1,6 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
-using FileManager.Core.Tests.Fakes;
+using FileManager.TestKit;
 using System;
 using System.Collections.Generic;
 using System.Text;

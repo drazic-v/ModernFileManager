@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace FileManager.Core.Tests.Fakes
+namespace FileManager.TestKit
 {
-    internal sealed class FakeStorageProvider : IStorageProvider
+    public sealed class FakeStorageProvider : IStorageProvider
     {
         private readonly Dictionary<string, List<StorageItem>> _children = new();
 

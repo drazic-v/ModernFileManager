@@ -17,6 +17,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
 	<ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
+	<ProjectReference Include="..\FileManager.TestKit\FileManager.TestKit.csproj" />
   </ItemGroup>
 
 </Project>
