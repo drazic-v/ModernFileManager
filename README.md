@@ -1,8 +1,10 @@
 # FileManager.App
 
 A cross-platform file manager built on Avalonia and ReactiveUI, with a
-unified interface for local and cloud storage. Early development —
+unified interface for local and cloud storage. 🚧 Active development —
 see Roadmap below.
+
+![App screenshot](docs/ui_screenshot.png)
 
 ## About
 
@@ -28,12 +30,21 @@ A learning vehicle, deliberately:
 
 ```
 FileManager.sln
-├── FileManager.App/            Avalonia UI + ReactiveUI view models, composition root
-├── FileManager.Core/           models + interfaces, zero dependencies
-└── FileManager.Core.Tests/     xUnit tests for Core
-└── FileManager.Infrastructure/ Local Storage definitions based on Core 
-└── FileManager.Infrastructure.Tests/ xUnit tests for Infrastructure 
-└──fFileManager.TestKit/        xUnit tests common for all providers
+├── FileManager.App/                 Avalonia UI - Views, ViewModels, Converters, Services
+├── FileManager.Core/                models + interfaces, zero dependencies
+├── FileManager.Core.Tests/
+├── FileManager.Infrastructure/      local filesystem provider
+├── FileManager.Infrastructure.Tests/
+└── FileManager.TestKit/             shared provider contract tests, reused by every provider's test project
+```
+
+```mermaid
+graph TD
+    App[FileManager.App] --> Core[FileManager.Core]
+    App --> Infra[FileManager.Infrastructure]
+    App --> Cloud[FileManager.Cloud - planned]
+    Infra --> Core
+    Cloud --> Core
 ```
 
 Dependencies only point inward, toward `Core`. `Core` depends on
@@ -49,22 +60,30 @@ milestones start — see Roadmap.
 - **xUnit** — testing
 - **Docker + Azurite** — local Azure Blob emulation for development *(planned)*
 
+## Features so far
+
+- Multi-tab browsing across providers, with per-tab back/forward history
+- Multi-select file operations — copy, cut, paste, delete, rename
+- Paste conflict resolution (skip, replace, merge, keep both — with
+  "apply to all remaining conflicts")
+- In-app toast notifications for success/failure feedback
+- Keyboard shortcuts (Ctrl+C / Ctrl+X / Ctrl+V, Delete)
+- Live folder-size and multi-selection-size calculation with progress
+
 ## Roadmap
 
 - [x] Phase 0 — Setup & tooling
 - [x] Phase 1 — Core & async basics
-- [x] Phase 2 — Local storage & first UI
-- [ ] Phase 3 — basic UI interactions
-- [ ] Phase 4 — Transfer manager
+- [x] Phase 2 — Local storage provider
+- [x] Phase 3 — UI: browsing, multi-select, notifications & dialogs
+- [ ] Phase 4 — Transfer Manager
 - [ ] Phase 5 — Docker & Azurite
 - [ ] Phase 6 — Azure provider
 - [ ] Phase 7 — Search, preview & polish
 
 ## Getting started
 
-_TODO: build/run instructions go here once Phase 3 makes the app
-actually runnable._
-
-## Legacy code
-
-Legacy code might be added later because i would need to translate it first.
+1. Clone the repo
+2. Open `FileManager.sln` in Visual Studio (or your editor of choice)
+3. Set `FileManager.App` as the startup project
+4. F5 to run
