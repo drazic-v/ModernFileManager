@@ -4,7 +4,7 @@ A cross-platform file manager built on Avalonia and ReactiveUI, with a
 unified interface for local and cloud storage. 🚧 Active development —
 see Roadmap below.
 
-![App screenshot](docs/ui_screenshot.png)
+![App screenshot](Docs/ui_screenshot.png)
 
 ## About
 
