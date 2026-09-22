@@ -8,9 +8,10 @@
   </PropertyGroup>
 
 <ItemGroup>
-  <AvaloniaResource Include="Assets\**" />
-  <ProjectReference Include="..\FileManager.Infrastructure\FileManager.Infrastructure.csproj" />
-  <ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
+    <AvaloniaResource Include="Assets\**" />
+    <ProjectReference Include="..\FileManager.Infrastructure\FileManager.Infrastructure.csproj" />
+    <ProjectReference Include="..\FileManager.Core\FileManager.Core.csproj" />
+    <InternalsVisibleTo Include="FileManager.App.Tests" />
 </ItemGroup>
 
   <ItemGroup>
@@ -24,5 +25,5 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="ReactiveUI.Avalonia" Version="12.0.3" />
-</ItemGroup>
+  </ItemGroup>
 </Project>

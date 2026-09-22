@@ -19,7 +19,7 @@ namespace FileManager.App.ViewModels
             _ = UpdateMultiSelectionInfoAsync();
         }
 
-        private async Task UpdateMultiSelectionInfoAsync()
+        internal async Task UpdateMultiSelectionInfoAsync()
         {
             _multiSelectionCts?.Cancel();
             _multiSelectionCts?.Dispose();
@@ -74,7 +74,7 @@ namespace FileManager.App.ViewModels
             }
         }
 
-        private async Task UpdateFolderInfoAsync()
+        internal async Task UpdateFolderInfoAsync()
         {
             _folderInfoCts?.Cancel();
             _folderInfoCts?.Dispose();
