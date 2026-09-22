@@ -1,6 +1,6 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
-using FileManager.Core.Tests.Fakes;
+using FileManager.TestKit;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,7 +18,7 @@ namespace FileManager.Core.Tests.Providers
             var provider = new FakeStorageProvider();
             var parent = new StoragePath { ProviderId = "fake", Value = "/root" };
 
-            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "newfolder", StorageItemKind.Directory);
+            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "newfolder", StorageItemKind.Directory, null, TestContext.Current.CancellationToken);
 
             Assert.Equal("newfolder", result);
         }
@@ -32,7 +32,7 @@ namespace FileManager.Core.Tests.Providers
                 MakeItem(parent, "newfolder", StorageItemKind.Directory),
                 MakeItem(parent, "newfolder (2)", StorageItemKind.Directory));
 
-            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "newfolder", StorageItemKind.Directory);
+            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "newfolder", StorageItemKind.Directory, null, TestContext.Current.CancellationToken);
 
             Assert.Equal("newfolder (3)", result);
         }
@@ -44,7 +44,7 @@ namespace FileManager.Core.Tests.Providers
             var parent = new StoragePath { ProviderId = "fake", Value = "/root" };
             provider.AddChildren("/root", MakeItem(parent, "report.pdf", StorageItemKind.File));
 
-            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "report.pdf", StorageItemKind.File);
+            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "report.pdf", StorageItemKind.File, null, TestContext.Current.CancellationToken);
 
             Assert.Equal("report (2).pdf", result);
         }
@@ -56,7 +56,7 @@ namespace FileManager.Core.Tests.Providers
             var parent = new StoragePath { ProviderId = "fake", Value = "/root" };
             provider.AddChildren("/root", MakeItem(parent, "notes", StorageItemKind.Directory));
 
-            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "notes", StorageItemKind.File);
+            var result = await UniqueNameGenerator.GenerateAsync(provider, parent, "notes", StorageItemKind.File, null, TestContext.Current.CancellationToken);
 
             Assert.Equal("notes (2)", result);
         }
@@ -71,7 +71,7 @@ namespace FileManager.Core.Tests.Providers
                 MakeItem(parent, "test (2).txt", StorageItemKind.File));
 
             var result = await UniqueNameGenerator.GenerateAsync(
-                provider, parent, "test.txt", StorageItemKind.File, excludeName: "test (2).txt");
+                provider, parent, "test.txt", StorageItemKind.File, excludeName: "test (2).txt", TestContext.Current.CancellationToken);
 
             Assert.Equal("test (2).txt", result);
         }
