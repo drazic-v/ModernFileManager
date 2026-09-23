@@ -151,28 +151,8 @@ public class WorkspaceViewModel : ReactiveObject
         var transfer = new TransferViewModel(itemsToProcess.Count == 1 ? itemsToProcess[0].Name : $"{itemsToProcess.Count} items");
         ActiveTransfers.Add(transfer);
 
-        NameCollisionPolicy? remembered = null;
-        StorageItem? currentItem = null;
-        var itemResolutions = new Dictionary<StorageItem, NameCollisionPolicy>();
-
-        ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
-        {
-            if (remembered is { } r && IsApplicable(r, conflictingKind))
-            {
-                if (currentItem is not null && destinationPath.Name == currentItem.Name)
-                    itemResolutions[currentItem] = r;
-                return r;
-            }
-
-            var isSelfReferential = currentItem is not null && StoragePath.PathsEqual(destinationPath, currentItem.Path);
-            var canMerge = currentItem?.Kind == StorageItemKind.Directory && conflictingKind == StorageItemKind.Directory;
-            var (policy, applyToAll) = await _conflictResolution.ResolveAsync(destinationPath.Name, canMerge, isSelfReferential, ct);
-
-            if (currentItem is not null && destinationPath.Name == currentItem.Name)
-                itemResolutions[currentItem] = policy;
-            if (applyToAll) remembered = policy;
-            return policy;
-        };
+        var conflictTracker = new PasteConflictTracker(_conflictResolution);
+        ConflictResolver resolver = conflictTracker.ResolveAsync;
 
         var succeeded = new List<StorageItem>();
         var skipped = new List<StorageItem>();
@@ -195,7 +175,7 @@ public class WorkspaceViewModel : ReactiveObject
             for (var i = 0; i < itemsToProcess.Count; i++)
             {
                 var item = itemsToProcess[i];
-                currentItem = item;
+                conflictTracker.CurrentItem = item;
                 var itemOffset = offsetBytes;
 
                 var progress = new Progress<TransferProgress>(p =>
@@ -208,7 +188,7 @@ public class WorkspaceViewModel : ReactiveObject
                     else
                         await clip.SourceProvider.CopyAsync(item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
 
-                    if (itemResolutions.TryGetValue(item, out var resolution) && resolution == NameCollisionPolicy.Skip)
+                    if (conflictTracker.ItemResolutions.TryGetValue(item, out var resolution) && resolution == NameCollisionPolicy.Skip)
                         skipped.Add(item);
                     else
                         succeeded.Add(item);
