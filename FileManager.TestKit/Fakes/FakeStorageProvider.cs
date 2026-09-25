@@ -53,6 +53,13 @@ namespace FileManager.TestKit
                     yield return item;
                 }
         }
+        public Task<bool> ExistsAsync(StoragePath path, CancellationToken ct = default)
+        {
+            if (path.Parent() is not { } parent || !_children.TryGetValue(parent.Value, out var siblings))
+                return Task.FromResult(false);
+
+            return Task.FromResult(siblings.Any(item => StoragePath.PathsEqual(item.Path, path)));
+        }
 
         public Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) => throw new NotImplementedException();

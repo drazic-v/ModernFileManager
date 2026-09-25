@@ -154,6 +154,13 @@ namespace FileManager.Infrastructure.Providers
             };
         }
 
+        public async Task<bool> ExistsAsync(StoragePath path, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            var nativePath = ToNativePath(path.Value);
+            return Directory.Exists(nativePath) || File.Exists(nativePath);
+        }
+
         public async IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, [EnumeratorCancellation] CancellationToken ct = default) 
         {
             var nativePath = ToNativePath(folder.Value);

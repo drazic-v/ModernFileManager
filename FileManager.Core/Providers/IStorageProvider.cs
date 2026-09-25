@@ -28,6 +28,8 @@ namespace FileManager.Core.Providers
 
         Task<StorageItem> GetInfoAsync(StoragePath path,  CancellationToken ct = default);
 
+        Task<bool> ExistsAsync(StoragePath path, CancellationToken ct = default);
+        
         Task DeleteAsync(StoragePath path, CancellationToken ct = default);
 
         Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default);
