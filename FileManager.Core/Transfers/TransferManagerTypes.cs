@@ -12,7 +12,12 @@ public sealed record RetryPolicy
     public required int MaxAttempts { get; init; } // 1 = no automatic retry
 
     public static RetryPolicy None => new() { MaxAttempts = 1 };
-    public static RetryPolicy Automatic(int maxAttempts) => new() { MaxAttempts = maxAttempts };
+    public static RetryPolicy Automatic(int maxAttempts)
+    {
+        if (maxAttempts < 1)
+            throw new ArgumentOutOfRangeException(nameof(maxAttempts), maxAttempts, "Must be at least 1.");
+        return new RetryPolicy { MaxAttempts = maxAttempts };
+    }
 }
 
 public sealed record TransferRequest

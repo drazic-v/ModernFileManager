@@ -87,8 +87,8 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
         }
     }
 
-    private readonly record struct FileTransferResult(TransferStatus Status, Exception? Error = null);
-    private async Task<FileTransferResult> TransferFileCoreAsync(
+    internal readonly record struct FileTransferResult(TransferStatus Status, Exception? Error = null);
+    internal async Task<FileTransferResult> TransferFileCoreAsync(
         IStorageProvider sourceProvider, IStorageProvider destinationProvider, TransferOperation operation,
         StoragePath sourcePath, StoragePath destinationFolder, ConflictResolver conflictResolver,
         RetryPolicy retryPolicy, CancellationToken token, IProgress<TransferUpdate> progress)
@@ -184,7 +184,7 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
         throw new InvalidOperationException("RetryPolicy.MaxAttempts must be at least 1.");
     }
 
-    private async Task<bool> DeleteEmptyDirectoriesAsync(IStorageProvider provider, StoragePath path, CancellationToken token)
+    internal async Task<bool> DeleteEmptyDirectoriesAsync(IStorageProvider provider, StoragePath path, CancellationToken token)
     {
         var isEmpty = true;
         await foreach (var item in provider.ListAsync(path, token))
@@ -201,8 +201,8 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
         return isEmpty;
     }
 
-    private sealed class ByteAccumulator { public long Completed; }
-    private sealed class FolderTransferSummary
+    internal sealed class ByteAccumulator { public long Completed; }
+    internal sealed class FolderTransferSummary
     {
         public int Succeeded;
         public int Skipped;
@@ -268,7 +268,7 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
             : new TransferUpdate { Status = TransferStatus.Succeeded, BytesCopied = folderInfo.Size, TotalBytes = folderInfo.Size });
     }
 
-    private async Task RunFolderJobRecursivelyAsync(
+    internal async Task RunFolderJobRecursivelyAsync(
         IStorageProvider sourceProvider, IStorageProvider destinationProvider, TransferOperation operation,
         StoragePath sourcePath, StoragePath destinationFolder, ConflictResolver conflictResolver,
         RetryPolicy retryPolicy, CancellationToken token, IProgress<TransferUpdate> jobProgress,
