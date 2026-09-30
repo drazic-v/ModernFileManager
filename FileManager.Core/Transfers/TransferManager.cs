@@ -47,9 +47,9 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
     {
         TransferJob? original;
         lock (_lock) _jobs.TryGetValue(transferId, out original);
-        if (original is null) return;
+        if (original is null || !original.IsFinished) return;
 
-        var retryJob = new TransferJob(transferId, original.Request, original.Progress);
+        var retryJob = new TransferJob(transferId, original.Request, original.OriginalProgress);
         lock (_lock) _jobs[transferId] = retryJob;
         retryJob.Progress.Report(new TransferUpdate { Status = TransferStatus.Queued });
         _queue.Writer.TryWrite(retryJob);
@@ -334,15 +334,54 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
 
 internal sealed class TransferJob
 {
+    private readonly TaskCompletionSource<bool> _completion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public TransferJob(Guid id, TransferRequest request, IProgress<TransferUpdate> progress)
     {
         Id = id;
         Request = request;
-        Progress = progress;
+        OriginalProgress = progress;
+        Progress = new CompletionTrackingProgress(this, progress);
     }
 
     public Guid Id { get; }
     public TransferRequest Request { get; }
+
+    /// <summary>The caller-supplied progress, unwrapped. Use this (not Progress) when
+    /// constructing a follow-up job - e.g. in Retry - so the tracking wrapper doesn't
+    /// stack a layer deeper on every retry.</summary>
+    public IProgress<TransferUpdate> OriginalProgress { get; }
+
+    /// <summary>What RunJobAsync/RunFileJobAsync/RunFolderJobAsync report through.
+    /// Marks the job finished *before* forwarding to OriginalProgress, so IsFinished
+    /// is never observably false by the time any caller sees a terminal report.</summary>
     public IProgress<TransferUpdate> Progress { get; }
+
     public CancellationTokenSource Cts { get; } = new();
+
+    public bool IsFinished => _completion.Task.IsCompleted;
+
+    private sealed class CompletionTrackingProgress : IProgress<TransferUpdate>
+    {
+        private readonly TransferJob _job;
+        private readonly IProgress<TransferUpdate> _inner;
+
+        public CompletionTrackingProgress(TransferJob job, IProgress<TransferUpdate> inner)
+        {
+            _job = job;
+            _inner = inner;
+        }
+
+        public void Report(TransferUpdate value)
+        {
+            if (IsTerminal(value.Status))
+                _job._completion.TrySetResult(true);
+            _inner.Report(value);
+        }
+
+        private static bool IsTerminal(TransferStatus status) =>
+            status is TransferStatus.Succeeded or TransferStatus.Failed
+                or TransferStatus.Skipped or TransferStatus.Cancelled;
+    }
 }

@@ -25,6 +25,29 @@ namespace FileManager.TestKit
 
         public string ProviderId { get; }
 
+        private TaskCompletionSource<bool>? _pendingCopyGate;  // waiting to be claimed by the next copy call
+        private TaskCompletionSource<bool>? _copyGateReached;   // signals once claimed
+        private TaskCompletionSource<bool>? _activeCopyGate;    // the gate currently being awaited - what Release targets
+
+        /// <summary>
+        /// Blocks the next CopyAsync/MoveAsync right before it does any real work.
+        /// Returns a task that completes once that call has actually been reached -
+        /// await this (with a timeout) before acting on the assumption that a submitted
+        /// job is "stuck"; Submit() returning is not proof the worker has started it.
+        /// The block itself observes the operation's own CancellationToken (so Cancel()/
+        /// CancelAll() unstick it immediately, no separate release needed) and has a
+        /// hard 5-second ceiling regardless, so a test that forgets to release or cancel
+        /// can never hang the worker loop - and DisposeAsync() awaiting it - forever.
+        /// </summary>
+        public Task HoldNextCopy()
+        {
+            _copyGateReached = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pendingCopyGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return _copyGateReached.Task;
+        }
+
+        public void ReleaseHeldCopy() => _activeCopyGate?.TrySetResult(true);
+
         public void FailNextCopyAttempts(int count, Exception? exception = null)
         {
             _copyFailuresRemaining = count;
@@ -157,11 +180,36 @@ namespace FileManager.TestKit
         }
 
         private async Task<(StorageItem Item, bool Skipped)> CopyOrSkipAsync(
-            StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
-            IProgress<TransferProgress>? progress, CancellationToken ct)
+    StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
+    IProgress<TransferProgress>? progress, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             MaybeThrowScriptedCopyFailure();
+
+            if (_pendingCopyGate is { } gate)
+            {
+                var reached = _copyGateReached!;
+                _pendingCopyGate = null;
+                _copyGateReached = null;
+                _activeCopyGate = gate;
+                reached.TrySetResult(true);
+
+                try
+                {
+                    await gate.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+                }
+                finally
+                {
+                    _activeCopyGate = null;
+                    // Force everything downstream (including the worker loop advancing to
+                    // the next job) onto a fresh continuation - never inline on whatever
+                    // thread called Cancel()/CancelAll(), which is what let a second job
+                    // slip through CancelAll()'s loop uncancelled.
+                    await Task.Yield();
+                }
+            }
+
+            ct.ThrowIfCancellationRequested();
 
             if (!_itemsByPath.TryGetValue(source.Value, out var sourceItem))
                 throw new FileNotFoundException($"No such item: {source.Value}");
