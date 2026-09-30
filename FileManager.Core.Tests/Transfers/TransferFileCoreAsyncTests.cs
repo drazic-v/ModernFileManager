@@ -25,11 +25,6 @@ public class TransferFileCoreAsyncTests
     private static Task<NameCollisionPolicy> AlwaysSkip(StoragePath _, StorageItemKind __, CancellationToken ___) =>
         Task.FromResult(NameCollisionPolicy.Skip);
 
-    private sealed class RecordingProgress : IProgress<TransferUpdate>
-    {
-        public List<TransferUpdate> Updates { get; } = new();
-        public void Report(TransferUpdate value) => Updates.Add(value);
-    }
 
     // --- Same provider ---
 
@@ -44,7 +39,7 @@ public class TransferFileCoreAsyncTests
         provider.AddChildren("/dest");
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             provider, provider, TransferOperation.Copy,
@@ -53,7 +48,7 @@ public class TransferFileCoreAsyncTests
 
         Assert.Equal(TransferStatus.Succeeded, result.Status);
         Assert.Null(result.Error);
-        Assert.True(await provider.ExistsAsync(destinationFolder.Combine("a.txt")));
+        Assert.True(await provider.ExistsAsync(destinationFolder.Combine("a.txt"), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -68,7 +63,7 @@ public class TransferFileCoreAsyncTests
         provider.FailNextCopyAttempts(1);
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             provider, provider, TransferOperation.Copy,
@@ -93,7 +88,7 @@ public class TransferFileCoreAsyncTests
         provider.FailNextCopyAttempts(3);
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             provider, provider, TransferOperation.Copy,
@@ -116,7 +111,7 @@ public class TransferFileCoreAsyncTests
         provider.AddChildren("/dest");
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -127,7 +122,7 @@ public class TransferFileCoreAsyncTests
             file, destinationFolder, AlwaysFail, RetryPolicy.None,
             cts.Token, progress));
 
-        Assert.True(await provider.ExistsAsync(file));
+        Assert.True(await provider.ExistsAsync(file, TestContext.Current.CancellationToken));
         Assert.DoesNotContain(progress.Updates, u => u.Status == TransferStatus.Succeeded);
     }
 
@@ -147,7 +142,7 @@ public class TransferFileCoreAsyncTests
         destination.AddChildren("/dest");
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             source, destination, TransferOperation.Copy,
@@ -156,9 +151,9 @@ public class TransferFileCoreAsyncTests
 
         Assert.Equal(TransferStatus.Succeeded, result.Status);
 
-        await using var stream = await destination.OpenReadAsync(destinationFolder.Combine("a.txt"));
+        await using var stream = await destination.OpenReadAsync(destinationFolder.Combine("a.txt"), TestContext.Current.CancellationToken);
         using var reader = new StreamReader(stream);
-        Assert.Equal("hello world", await reader.ReadToEndAsync());
+        Assert.Equal("hello world", await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -177,7 +172,7 @@ public class TransferFileCoreAsyncTests
         destination.SetContent(existingFile, Encoding.UTF8.GetBytes("old"));
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             source, destination, TransferOperation.Copy,
@@ -186,9 +181,9 @@ public class TransferFileCoreAsyncTests
 
         Assert.Equal(TransferStatus.Skipped, result.Status);
 
-        await using var stream = await destination.OpenReadAsync(existingFile);
+        await using var stream = await destination.OpenReadAsync(existingFile, TestContext.Current.CancellationToken);
         using var reader = new StreamReader(stream);
-        Assert.Equal("old", await reader.ReadToEndAsync());
+        Assert.Equal("old", await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -204,7 +199,7 @@ public class TransferFileCoreAsyncTests
         destination.AddChildren("/dest");
 
         await using var manager = new TransferManager();
-        var progress = new RecordingProgress();
+        var progress = new RecordingProgress<TransferUpdate>();
 
         var result = await manager.TransferFileCoreAsync(
             source, destination, TransferOperation.Move,
@@ -212,6 +207,6 @@ public class TransferFileCoreAsyncTests
             CancellationToken.None, progress);
 
         Assert.Equal(TransferStatus.Succeeded, result.Status);
-        Assert.False(await source.ExistsAsync(sourceFile));
+        Assert.False(await source.ExistsAsync(sourceFile, TestContext.Current.CancellationToken));
     }
 }

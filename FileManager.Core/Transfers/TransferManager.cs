@@ -105,12 +105,13 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
                 progress.Report(new TransferUpdate { Status = TransferStatus.Running, AttemptNumber = attempt });
                 try
                 {
-                    if (operation == TransferOperation.Copy)
-                        await sourceProvider.CopyAsync(sourcePath, destinationFolder, conflictResolver, nativeProgress, token);
-                    else
-                        await sourceProvider.MoveAsync(sourcePath, destinationFolder, conflictResolver, nativeProgress, token);
+                    var copiedItem = operation == TransferOperation.Copy
+                        ? await sourceProvider.CopyAsync(sourcePath, destinationFolder, conflictResolver, nativeProgress, token)
+                        : await sourceProvider.MoveAsync(sourcePath, destinationFolder, conflictResolver, nativeProgress, token);
 
-                    return new FileTransferResult(TransferStatus.Succeeded);
+                    return copiedItem is null
+                        ? new FileTransferResult(TransferStatus.Skipped)
+                        : new FileTransferResult(TransferStatus.Succeeded);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

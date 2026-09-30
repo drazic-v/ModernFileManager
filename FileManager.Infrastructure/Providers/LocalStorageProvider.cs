@@ -278,7 +278,7 @@ namespace FileManager.Infrastructure.Providers
             }
         }
 
-        public async Task<StorageItem> CopyAsync(
+        public async Task<StorageItem?> CopyAsync(
             StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
         {
@@ -326,14 +326,14 @@ namespace FileManager.Infrastructure.Providers
                     await MergeDirectoriesRecursivelyAsync(nativeSource, nativeDestination, resolver, false, progress, ct);
                     break;
                 case NameCollisionPolicy.Skip:
-                    return await GetInfoAsync(destinationPath, ct);
+                    return null;
                 case NameCollisionPolicy.Fail:
                     throw new IOException($"An item named '{source.Name}' already exists at the destination.");
             }
 
             return await GetInfoAsync(destinationPath, ct);
         }
-        public async Task<StorageItem> CopyAsync(
+        public async Task<StorageItem?> CopyAsync(
             StoragePath source, StoragePath destinationFolder,
             NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
@@ -357,7 +357,7 @@ namespace FileManager.Infrastructure.Providers
         }
 
 
-        public async Task<StorageItem> MoveAsync(
+        public async Task<StorageItem?> MoveAsync(
             StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
         { 
@@ -395,14 +395,14 @@ namespace FileManager.Infrastructure.Providers
                     await Task.Run(() => DeleteEmptyDirectoriesRecursively(nativeSource), ct);
                     break;
                 case NameCollisionPolicy.Skip:
-                    return await GetInfoAsync(destinationPath, ct);
+                    return null;
                 case NameCollisionPolicy.Fail:
                     throw new IOException($"An item named '{source.Name}' already exists at the destination.");
             }
             return await GetInfoAsync(destinationPath, ct);
         }
 
-        public async Task<StorageItem> MoveAsync(
+        public async Task<StorageItem?> MoveAsync(
             StoragePath source, StoragePath destinationFolder,
             NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique,
             IProgress<TransferProgress>? progress = null, CancellationToken ct = default)

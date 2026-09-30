@@ -62,7 +62,7 @@ namespace FileManager.TestKit
                 throw exception;
 
             if (_children.TryGetValue(folder.Value, out var items))
-                foreach (var item in items)
+                foreach (var item in items.ToList()) // snapshot: a recursive delete can mutate this list mid-walk
                 {
                     ct.ThrowIfCancellationRequested();
                     yield return item;
@@ -142,18 +142,18 @@ namespace FileManager.TestKit
         public Task OpenFileAsync(StoragePath path, CancellationToken ct = default) =>
             throw new NotImplementedException();
 
-        public async Task<StorageItem> CopyAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+        public async Task<StorageItem?> CopyAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
         {
-            var (item, _) = await CopyOrSkipAsync(source, destinationFolder, resolver, progress, ct);
-            return item;
+            var (item, skipped) = await CopyOrSkipAsync(source, destinationFolder, resolver, progress, ct);
+            return skipped ? null : item;
         }
 
-        public async Task<StorageItem> MoveAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
+        public async Task<StorageItem?> MoveAsync(StoragePath source, StoragePath destinationFolder, ConflictResolver resolver, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
         {
             var (item, skipped) = await CopyOrSkipAsync(source, destinationFolder, resolver, progress, ct);
             if (!skipped)
                 await DeleteAsync(source, ct);
-            return item;
+            return skipped ? null : item;
         }
 
         private async Task<(StorageItem Item, bool Skipped)> CopyOrSkipAsync(
