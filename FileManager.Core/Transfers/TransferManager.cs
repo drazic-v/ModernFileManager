@@ -14,51 +14,94 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
     private readonly Dictionary<Guid, TransferJob> _jobs = new();
     private readonly object _lock = new();
     private readonly Task _workerLoop;
+    private readonly TimeSpan _disposeTimeout;
 
-    public TransferManager()
+
+    public TransferManager(TimeSpan? disposeTimeout = null)   // `new TransferManager()` still compiles
     {
+        _disposeTimeout = disposeTimeout ?? TimeSpan.FromSeconds(3);
         _workerLoop = Task.Run(ProcessQueueAsync);
     }
 
+    private int _disposed;
+
     public Guid Submit(TransferRequest request, IProgress<TransferUpdate> progress)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
         var job = new TransferJob(Guid.NewGuid(), request, progress);
         lock (_lock) _jobs[job.Id] = job;
         progress.Report(new TransferUpdate { Status = TransferStatus.Queued });
-        _queue.Writer.TryWrite(job);
+
+        if (!_queue.Writer.TryWrite(job))   // lost a race with DisposeAsync between the check and here
+        {
+            lock (_lock) _jobs.Remove(job.Id);
+            job.DisposeCts();
+            throw new ObjectDisposedException(nameof(TransferManager));
+        }
         return job.Id;
     }
 
     public void Cancel(Guid transferId)
     {
-        lock (_lock)
-            if (_jobs.TryGetValue(transferId, out var job))
-                job.Cts.Cancel();
+        TransferJob? job;
+        lock (_lock) _jobs.TryGetValue(transferId, out job);
+        job?.TryCancel();
     }
 
     public void CancelAll()
     {
-        lock (_lock)
-            foreach (var job in _jobs.Values)
-                job.Cts.Cancel();
+        List<TransferJob> snapshot;
+        lock (_lock) snapshot = _jobs.Values.ToList();
+        foreach (var job in snapshot) job.TryCancel();
     }
 
     public void Retry(Guid transferId)
     {
-        TransferJob? original;
-        lock (_lock) _jobs.TryGetValue(transferId, out original);
-        if (original is null || !original.IsFinished) return;
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-        var retryJob = new TransferJob(transferId, original.Request, original.OriginalProgress);
-        lock (_lock) _jobs[transferId] = retryJob;
+        TransferJob retryJob;
+        lock (_lock)
+        {
+            if (!_jobs.TryGetValue(transferId, out var original)
+                || original.TerminalStatus != TransferStatus.Failed) return;
+            retryJob = new TransferJob(transferId, original.Request, original.OriginalProgress);
+            _jobs[transferId] = retryJob;
+        }
         retryJob.Progress.Report(new TransferUpdate { Status = TransferStatus.Queued });
-        _queue.Writer.TryWrite(retryJob);
+        if (!_queue.Writer.TryWrite(retryJob))
+            throw new ObjectDisposedException(nameof(TransferManager));
     }
 
+    /// <summary>Drops a finished (i.e. retained Failed) job. Live jobs are left alone.</summary>
+    public void Forget(Guid transferId)
+    {
+        lock (_lock)
+            if (_jobs.TryGetValue(transferId, out var job) && job.IsFinished)
+                _jobs.Remove(transferId);
+    }
+
+    internal int TrackedJobCount { get { lock (_lock) return _jobs.Count; } }   // test seam
+
+
+    // Only Failed jobs are worth keeping: Retry needs their Request/OriginalProgress.
+    private void ReleaseJob(TransferJob job)
+    {
+        lock (_lock)
+        {
+            if (job.TerminalStatus != TransferStatus.Failed
+                && _jobs.TryGetValue(job.Id, out var current) && ReferenceEquals(current, job))
+                _jobs.Remove(job.Id);   // identity check: Retry may have replaced this entry
+        }
+        job.DisposeCts();
+    }
     private async Task ProcessQueueAsync()
     {
         await foreach (var job in _queue.Reader.ReadAllAsync())
-            await RunJobAsync(job);
+        {
+            try { await RunJobAsync(job); }
+            finally { ReleaseJob(job); }
+        }
     }
 
     private async Task RunJobAsync(TransferJob job)
@@ -325,10 +368,14 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
 
         job.Progress.Report(new TransferUpdate { Status = result.Status, Error = result.Error });
     }
+
     public async ValueTask DisposeAsync()
     {
-        _queue.Writer.Complete();
-        await _workerLoop;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;   // idempotent
+        CancelAll();
+        _queue.Writer.TryComplete();
+        try { await _workerLoop.WaitAsync(_disposeTimeout); }
+        catch (TimeoutException) { }
     }
 }
 
@@ -336,6 +383,8 @@ internal sealed class TransferJob
 {
     private readonly TaskCompletionSource<bool> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _terminalStatus = -1; // -1 = not finished
+
 
     public TransferJob(Guid id, TransferRequest request, IProgress<TransferUpdate> progress)
     {
@@ -362,6 +411,25 @@ internal sealed class TransferJob
 
     public bool IsFinished => _completion.Task.IsCompleted;
 
+    public TransferStatus? TerminalStatus
+    {
+        get { var v = Volatile.Read(ref _terminalStatus); return v < 0 ? null : (TransferStatus)v; }
+    }
+
+    /// <summary>Cancelling a job whose Cts was already released is a harmless no-op.</summary>
+    public void TryCancel()
+    {
+        try { Cts.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    public void DisposeCts() => Cts.Dispose(); // idempotent
+
+    private void MarkTerminal(TransferStatus status)
+    {
+        // First terminal report wins; status is visible before IsFinished flips.
+        if (Interlocked.CompareExchange(ref _terminalStatus, (int)status, -1) == -1)
+            _completion.TrySetResult(true);
+    }
     private sealed class CompletionTrackingProgress : IProgress<TransferUpdate>
     {
         private readonly TransferJob _job;
@@ -375,8 +443,8 @@ internal sealed class TransferJob
 
         public void Report(TransferUpdate value)
         {
-            if (IsTerminal(value.Status))
-                _job._completion.TrySetResult(true);
+            if (IsTerminal(value.Status)) 
+                _job.MarkTerminal(value.Status); // before forwarding
             _inner.Report(value);
         }
 
