@@ -256,4 +256,46 @@ public class JobTrackingTests
         public CallbackProgress(Action<TransferUpdate> onReport) => _onReport = onReport;
         public void Report(TransferUpdate value) => _onReport(value);
     }
+
+    [Fact]
+    public async Task Submit_AfterDispose_Throws_AndLeavesNothingBehind()
+    {
+        var (provider, file, dest) = Seed();
+        var manager = new TransferManager();
+        await manager.DisposeAsync();
+
+        var progress = new RecordingProgress<TransferUpdate>();
+        Assert.Throws<ObjectDisposedException>(() =>
+            manager.Submit(CopyRequest(provider, file, dest), progress));
+
+        Assert.Empty(progress.Updates);          // no stray "Queued"
+        Assert.Equal(0, manager.TrackedJobCount);
+    }
+
+    [Fact]
+    public async Task Retry_AfterDispose_Throws()
+    {
+        var (provider, file, dest) = Seed();
+        provider.FailNextCopyAttempts(1);
+        var manager = new TransferManager();
+        var progress = new TerminalAwaitingProgress();
+
+        var id = manager.Submit(CopyRequest(provider, file, dest), progress);
+        await progress.Completion.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        await manager.DisposeAsync();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.Retry(id));
+    }
+
+    [Fact]
+    public async Task CancelCancelAllAndForget_AfterDispose_AreHarmless()
+    {
+        var manager = new TransferManager();
+        await manager.DisposeAsync();
+
+        manager.Cancel(Guid.NewGuid());
+        manager.CancelAll();
+        manager.Forget(Guid.NewGuid());
+        await manager.DisposeAsync();   // second dispose is a no-op
+    }
 }
