@@ -39,10 +39,14 @@ namespace FileManager.TestKit
         /// hard 5-second ceiling regardless, so a test that forgets to release or cancel
         /// can never hang the worker loop - and DisposeAsync() awaiting it - forever.
         /// </summary>
-        public Task HoldNextCopy()
+
+        private bool _pendingIgnoreCancellation;
+
+        public Task HoldNextCopy(bool ignoreCancellation = false)
         {
             _copyGateReached = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _pendingCopyGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pendingIgnoreCancellation = ignoreCancellation;
             return _copyGateReached.Task;
         }
 
@@ -189,14 +193,15 @@ namespace FileManager.TestKit
             if (_pendingCopyGate is { } gate)
             {
                 var reached = _copyGateReached!;
-                _pendingCopyGate = null;
-                _copyGateReached = null;
+                var ignoreCt = _pendingIgnoreCancellation;
+                _pendingCopyGate = null; 
+                _copyGateReached = null; 
                 _activeCopyGate = gate;
                 reached.TrySetResult(true);
 
                 try
                 {
-                    await gate.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+                    await gate.Task.WaitAsync(TimeSpan.FromSeconds(5), ignoreCt ? CancellationToken.None : ct);
                 }
                 finally
                 {
