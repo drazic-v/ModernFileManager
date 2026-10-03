@@ -1,6 +1,7 @@
 ﻿using FileManager.App.Services;
 using FileManager.Core.Models;
 using FileManager.Core.Providers;
+using FileManager.Core.Transfers;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -26,30 +27,28 @@ public class WorkspaceViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> PasteCommand { get; }
 
     private readonly INotificationService _notifications;
-
     private readonly IConflictResolutionService _conflictResolution;
+    private readonly TransferManager _transfers;
 
-    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications, IConflictResolutionService conflictResolution)
+    public WorkspaceViewModel(IStorageProvider provider, StoragePath startingFolder, string displayName,
+        INotificationService notifications, IConflictResolutionService conflictResolution, TransferManager transfers)
     {
         _notifications = notifications;
         _conflictResolution = conflictResolution;
+        _transfers = transfers;
         Tabs = new ObservableCollection<MainViewModel>();
 
         AddTabCommand = ReactiveCommand.Create(AddTab);
         CloseTabCommand = ReactiveCommand.Create<MainViewModel>(CloseTab);
 
-        // This is just a placeholder to demonstrate how the transfer progress bar works.
-        // In a real application, you would add TransferViewModel instances to
-        // ActiveTransfers when actual file transfers are initiated.
-        //ActiveTransfers.Add(new TransferViewModel("example.zip") { ProgressPercent = 42 });
-
         Providers.Add(new ProviderViewModel(displayName, provider, startingFolder));
         OpenProviderCommand = ReactiveCommand.Create<ProviderViewModel>(entry => OpenTab(entry.Provider, entry.StartingFolder, entry.DisplayName));
         AddProviderCommand = ReactiveCommand.Create(() => { /* TODO: open a connect-provider window once a second provider type exists */ });
 
+        // Cross-provider paste is allowed now - the manager's stream-pump path handles it.
         PasteCommand = ReactiveCommand.CreateFromTask(PasteAsync,
             this.WhenAnyValue(x => x.Clipboard, x => x.SelectedTab,
-                (clip, tab) => clip is not null && tab is not null && clip.SourceProvider.ProviderId == tab.Provider.ProviderId));
+                (clip, tab) => clip is not null && tab is not null));
     }
 
     public ObservableCollection<MainViewModel> Tabs { get; }
@@ -74,7 +73,6 @@ public class WorkspaceViewModel : ReactiveObject
     public ReactiveCommand<ProviderViewModel, Unit> OpenProviderCommand { get; }
     public ReactiveCommand<Unit, Unit> AddProviderCommand { get; }
 
-
     private void AddTab()
     {
         if (SelectedTab is { } current)
@@ -82,6 +80,7 @@ public class WorkspaceViewModel : ReactiveObject
         else
             OpenTab(Providers[0].Provider, Providers[0].StartingFolder, Providers[0].DisplayName);
     }
+
     private void OpenTab(IStorageProvider provider, StoragePath startingFolder, string displayName)
     {
         var tab = new MainViewModel(provider, startingFolder, displayName, _notifications);
@@ -115,25 +114,26 @@ public class WorkspaceViewModel : ReactiveObject
         Clipboard = new ClipboardEntry(items, provider, isCut);
     }
 
-    private static bool IsApplicable(NameCollisionPolicy policy, StorageItemKind conflictingKind) =>
-    policy != NameCollisionPolicy.Merge || conflictingKind == StorageItemKind.Directory;
-
     private async Task PasteAsync()
     {
         if (Clipboard is not { } clip || SelectedTab is not { } target) return;
-        if (clip.SourceProvider.ProviderId != target.Provider.ProviderId)
-            return; // TODO: route through TransferManager's stream-pump path once it exists
+
+        // These guards compare paths, so they only make sense within one provider.
+        var sameProvider = clip.SourceProvider.ProviderId == target.Provider.ProviderId;
 
         var itemsToProcess = new List<StorageItem>();
         foreach (var item in clip.Items)
         {
-            if (clip.IsCut && item.Path.Parent() is { } itemParent && StoragePath.PathsEqual(itemParent, target.CurrentFolder))
+            if (sameProvider && clip.IsCut && item.Path.Parent() is { } itemParent
+                && StoragePath.PathsEqual(itemParent, target.CurrentFolder))
             {
                 _notifications.ShowError($"Can't move \"{item.Name}\" to its original location.");
                 continue;
             }
 
-            if (item.Kind == StorageItemKind.Directory && StoragePath.PathsEqual(target.CurrentFolder, item.Path))
+            // Blocks pasting a folder into itself AND into any of its own subfolders.
+            if (sameProvider && item.Kind == StorageItemKind.Directory
+                && StoragePath.IsSameOrDescendant(target.CurrentFolder, item.Path))
             {
                 _notifications.ShowError($"Can't paste \"{item.Name}\" into itself.");
                 continue;
@@ -151,86 +151,65 @@ public class WorkspaceViewModel : ReactiveObject
         var transfer = new TransferViewModel(itemsToProcess.Count == 1 ? itemsToProcess[0].Name : $"{itemsToProcess.Count} items");
         ActiveTransfers.Add(transfer);
 
-        var conflictTracker = new PasteConflictTracker(_conflictResolution);
-        ConflictResolver resolver = conflictTracker.ResolveAsync;
-
-        var succeeded = new List<StorageItem>();
-        var skipped = new List<StorageItem>();
-        var failed = new List<string>();
-
+        var submittedIds = new List<Guid>();
         try
         {
+            // Measure up front so the aggregate percent is meaningful from the first update.
             transfer.IsMeasuring = true;
-            var itemSizes = new List<long>();
+            var sizes = new List<long>();
             foreach (var item in itemsToProcess)
             {
-                itemSizes.Add(item.Kind == StorageItemKind.Directory
+                sizes.Add(item.Kind == StorageItemKind.Directory
                     ? (await FolderInfoCalculator.GetFolderInfo(clip.SourceProvider, item.Path, ct: transfer.Token)).Size
                     : item.SizeInBytes ?? 0);
             }
-            var totalBytes = itemSizes.Sum();
             transfer.IsMeasuring = false;
 
-            long offsetBytes = 0;
+            var tracker = new PasteConflictTracker(_conflictResolution, onAbort: transfer.Cancel);
+            var batch = new PasteBatch(itemsToProcess, sizes, onPercent: percent => transfer.ProgressPercent = percent);
+
             for (var i = 0; i < itemsToProcess.Count; i++)
             {
                 var item = itemsToProcess[i];
-                conflictTracker.CurrentItem = item;
-                var itemOffset = offsetBytes;
-
-                var progress = new Progress<TransferProgress>(p =>
-                    transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)(itemOffset + p.BytesCopied) / totalBytes * 100) : 100);
-
-                try
+                var request = new TransferRequest
                 {
-                    if (clip.IsCut)
-                        await clip.SourceProvider.MoveAsync(item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
-                    else
-                        await clip.SourceProvider.CopyAsync(item.Path, target.CurrentFolder, resolver, progress, transfer.Token);
+                    SourceProvider = clip.SourceProvider,
+                    SourcePath = item.Path,
+                    DestinationProvider = target.Provider,
+                    DestinationFolder = target.CurrentFolder,
+                    Operation = clip.IsCut ? TransferOperation.Move : TransferOperation.Copy,
+                    ConflictResolver = tracker.ForItem(item)
+                };
 
-                    if (conflictTracker.ItemResolutions.TryGetValue(item, out var resolution) && resolution == NameCollisionPolicy.Skip)
-                        skipped.Add(item);
-                    else
-                        succeeded.Add(item);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw; // cancellation stops the whole batch, unlike a per-item failure
-                }
-                catch (Exception ex)
-                {
-                    failed.Add($"{item.Name}: {ex.Message}");
-                }
-
-                offsetBytes += itemSizes[i];
-                transfer.ProgressPercent = totalBytes > 0 ? Math.Min(100, (double)offsetBytes / totalBytes * 100) : 100;
+                // Created here, on the UI thread, so Progress<T> marshals updates back to it.
+                var id = _transfers.Submit(request, batch.CreateProgress(i));
+                batch.Entries[i].TransferId = id;
+                submittedIds.Add(id);
             }
 
-            if (clip.IsCut) Clipboard = null;
+            // Cancel button (or an abandoned conflict dialog) => cancel every submitted job.
+            // Registered after the list is complete; if already cancelled, this fires immediately.
+            using var cancelBridge = transfer.Token.Register(() =>
+            {
+                foreach (var id in submittedIds) _transfers.Cancel(id);
+            });
 
-            var verb = clip.IsCut ? "moved" : "copied";
-            var parts = new List<string>();
+            await batch.WhenAllFinished;
 
-            if (succeeded.Count > 0)
-                parts.Add(succeeded.Count == 1 ? $"{verb} \"{succeeded[0].Name}\"" : $"{verb} {succeeded.Count} items");
-            if (skipped.Count > 0)
-                parts.Add(skipped.Count == 1 ? $"skipped \"{skipped[0].Name}\" (already exists)" : $"skipped {skipped.Count} items (already exist)");
-            if (failed.Count > 0)
-                parts.Add(failed.Count == 1 ? "1 failed" : $"{failed.Count} failed");
-
-            var message = string.Join(", ", parts);
-            message = char.ToUpper(message[0]) + message[1..] + ".";
-
-            if (failed.Count > 0)
-                _notifications.ShowError($"{message} First error: {failed[0]}");
-            else
-                _notifications.ShowSuccess(message);
+            // Cancellation stays silent and keeps the clipboard, as before.
+            if (batch.Entries.All(e => e.Status != TransferStatus.Cancelled))
+            {
+                if (clip.IsCut) Clipboard = null;
+                ShowPasteSummary(clip.IsCut, batch.Entries);
+            }
         }
         catch (OperationCanceledException)
         {
+            // Cancelled while measuring - nothing was submitted.
         }
         finally
         {
+            foreach (var id in submittedIds) _transfers.Forget(id);   // drop retained Failed jobs; nothing retries them yet
             ActiveTransfers.Remove(transfer);
             transfer.Dispose();
         }
@@ -240,5 +219,30 @@ public class WorkspaceViewModel : ReactiveObject
 
         if (clip.IsCut && clip.Items[0].Path.Parent() is { } sourceParent)
             await RefreshTabsViewingAsync(target, sourceParent);
+    }
+
+    private void ShowPasteSummary(bool isCut, IReadOnlyList<PasteBatch.Entry> entries)
+    {
+        var succeeded = entries.Where(e => e.Status == TransferStatus.Succeeded).ToList();
+        var skipped = entries.Where(e => e.Status == TransferStatus.Skipped).ToList();
+        var failed = entries.Where(e => e.Status == TransferStatus.Failed).ToList();
+
+        var verb = isCut ? "moved" : "copied";
+        var parts = new List<string>();
+
+        if (succeeded.Count > 0)
+            parts.Add(succeeded.Count == 1 ? $"{verb} \"{succeeded[0].Item.Name}\"" : $"{verb} {succeeded.Count} items");
+        if (skipped.Count > 0)
+            parts.Add(skipped.Count == 1 ? $"skipped \"{skipped[0].Item.Name}\" (already exists)" : $"skipped {skipped.Count} items (already exist)");
+        if (failed.Count > 0)
+            parts.Add(failed.Count == 1 ? "1 failed" : $"{failed.Count} failed");
+
+        var message = string.Join(", ", parts);
+        message = char.ToUpper(message[0]) + message[1..] + ".";
+
+        if (failed.Count > 0)
+            _notifications.ShowError($"{message} First error: {failed[0].Item.Name}: {failed[0].Error?.Message}");
+        else
+            _notifications.ShowSuccess(message);
     }
 }

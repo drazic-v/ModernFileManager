@@ -13,6 +13,7 @@ using ReactiveUI.Builder;
 using System;
 using System.Diagnostics;
 using System.Reactive;
+using FileManager.Core.Transfers;
 
 namespace FileManager.App;
 
@@ -49,8 +50,14 @@ public partial class App : Application
             }))
             .BuildApp();
 
+            var transfers = new TransferManager();
             var conflictResolution = new ConflictResolutionService(mainWindow);
-            mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications, conflictResolution); desktop.MainWindow = mainWindow;
+            mainWindow.DataContext = new WorkspaceViewModel(provider, startingFolder, "Local", notifications, conflictResolution, transfers);
+            desktop.MainWindow = mainWindow;
+
+            // Bounded: DisposeAsync cancels everything and waits at most its own timeout (3s);
+            // the outer Wait is a second safety net.
+            desktop.Exit += (_, _) => transfers.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(4));
         }
         base.OnFrameworkInitializationCompleted();
     }
