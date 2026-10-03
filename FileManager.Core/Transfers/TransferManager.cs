@@ -374,7 +374,7 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;   // idempotent
         CancelAll();
         _queue.Writer.TryComplete();
-        try { await _workerLoop.WaitAsync(_disposeTimeout); }
+        try { await _workerLoop.WaitAsync(_disposeTimeout).ConfigureAwait(false); }
         catch (TimeoutException) { }
     }
 }
