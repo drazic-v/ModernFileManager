@@ -10,12 +10,12 @@ namespace FileManager.App.Tests.Paste;
 public class PasteConflictTrackerTests
 {
     [Fact]
-    public async Task ResolveAsync_NoRememberedPolicy_AsksTheResolutionService()
+    public async Task ForItem_NoRememberedPolicy_AsksTheResolutionService()
     {
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Replace, false));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = File(Path("/root/a.txt")) };
+        var resolver = new PasteConflictTracker(fake).ForItem(File(Path("/root/a.txt")));
 
-        var result = await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        var result = await resolver(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
 
         Assert.Equal(NameCollisionPolicy.Replace, result);
         Assert.Single(fake.Requests);
@@ -23,63 +23,60 @@ public class PasteConflictTrackerTests
     }
 
     [Fact]
-    public async Task ResolveAsync_BothDirectories_ForwardsCanMergeTrue()
+    public async Task ForItem_BothDirectories_ForwardsCanMergeTrue()
     {
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Merge, false));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = Folder(Path("/root/docs")) };
+        var resolver = new PasteConflictTracker(fake).ForItem(Folder(Path("/root/docs")));
 
-        await tracker.ResolveAsync(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
+        await resolver(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
 
         Assert.True(fake.Requests[0].CanMerge);
     }
 
     [Fact]
-    public async Task ResolveAsync_ConflictingItemIsAFile_ForwardsCanMergeFalse_EvenIfCurrentItemIsADirectory()
+    public async Task ForItem_ConflictingItemIsAFile_ForwardsCanMergeFalse_EvenIfPastedItemIsADirectory()
     {
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Replace, false));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = Folder(Path("/root/docs")) };
+        var resolver = new PasteConflictTracker(fake).ForItem(Folder(Path("/root/docs")));
 
         // A file named "docs" already exists at the destination, even though we're pasting a folder.
-        await tracker.ResolveAsync(Path("/dest/docs"), StorageItemKind.File, CancellationToken.None);
+        await resolver(Path("/dest/docs"), StorageItemKind.File, CancellationToken.None);
 
         Assert.False(fake.Requests[0].CanMerge);
     }
 
     [Fact]
-    public async Task ResolveAsync_DestinationIsCurrentItemsOwnPath_ForwardsIsSelfReferentialTrue()
+    public async Task ForItem_DestinationIsTheItemsOwnPath_ForwardsIsSelfReferentialTrue()
     {
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Skip, false));
         var item = Folder(Path("/root/docs"));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = item };
+        var resolver = new PasteConflictTracker(fake).ForItem(item);
 
-        await tracker.ResolveAsync(item.Path, StorageItemKind.Directory, CancellationToken.None);
+        await resolver(item.Path, StorageItemKind.Directory, CancellationToken.None);
 
         Assert.True(fake.Requests[0].IsSelfReferential);
     }
 
     [Fact]
-    public async Task ResolveAsync_DestinationIsADifferentPath_ForwardsIsSelfReferentialFalse()
+    public async Task ForItem_DestinationIsADifferentPath_ForwardsIsSelfReferentialFalse()
     {
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Skip, false));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = Folder(Path("/root/docs")) };
+        var resolver = new PasteConflictTracker(fake).ForItem(Folder(Path("/root/docs")));
 
-        await tracker.ResolveAsync(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
+        await resolver(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
 
         Assert.False(fake.Requests[0].IsSelfReferential);
     }
 
     [Fact]
-    public async Task ResolveAsync_ApplyToAllTrue_ReusesThePolicyForTheNextApplicableConflict_WithoutAskingAgain()
+    public async Task ApplyToAllTrue_IsSharedAcrossResolversForDifferentItems_WithoutAskingAgain()
     {
         // Only one scripted response - if the tracker asked a second time, the fake would throw.
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Replace, true));
         var tracker = new PasteConflictTracker(fake);
 
-        tracker.CurrentItem = File(Path("/root/a.txt"));
-        var first = await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
-
-        tracker.CurrentItem = File(Path("/root/b.txt"));
-        var second = await tracker.ResolveAsync(Path("/dest/b.txt"), StorageItemKind.File, CancellationToken.None);
+        var first = await tracker.ForItem(File(Path("/root/a.txt")))(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        var second = await tracker.ForItem(File(Path("/root/b.txt")))(Path("/dest/b.txt"), StorageItemKind.File, CancellationToken.None);
 
         Assert.Equal(NameCollisionPolicy.Replace, first);
         Assert.Equal(NameCollisionPolicy.Replace, second);
@@ -87,92 +84,81 @@ public class PasteConflictTrackerTests
     }
 
     [Fact]
-    public async Task ResolveAsync_ApplyToAllFalse_AsksAgainForTheNextConflict()
+    public async Task ApplyToAllFalse_AsksAgainForTheNextConflict()
     {
         var fake = new FakeConflictResolutionService(
             (NameCollisionPolicy.Replace, false),
             (NameCollisionPolicy.Skip, false));
         var tracker = new PasteConflictTracker(fake);
 
-        tracker.CurrentItem = File(Path("/root/a.txt"));
-        await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
-
-        tracker.CurrentItem = File(Path("/root/b.txt"));
-        var second = await tracker.ResolveAsync(Path("/dest/b.txt"), StorageItemKind.File, CancellationToken.None);
+        await tracker.ForItem(File(Path("/root/a.txt")))(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        var second = await tracker.ForItem(File(Path("/root/b.txt")))(Path("/dest/b.txt"), StorageItemKind.File, CancellationToken.None);
 
         Assert.Equal(NameCollisionPolicy.Skip, second);
         Assert.Equal(2, fake.Requests.Count);
     }
 
     [Fact]
-    public async Task ResolveAsync_RememberedMergePolicy_IsNotReusedForALaterFileConflict()
+    public async Task RememberedMergePolicy_IsNotReusedForALaterFileConflict()
     {
-        // The exact bug the IsApplicable guard exists for: Merge chosen "apply to all" for a
-        // folder conflict must not get silently reapplied to a file conflict later in the
-        // same mixed paste - Merge only makes sense directory-to-directory.
+        // Merge chosen "apply to all" for a folder conflict must not get silently reapplied
+        // to a file conflict later in the same mixed paste.
         var fake = new FakeConflictResolutionService(
-            (NameCollisionPolicy.Merge, true),      // folder vs folder - remembered
-            (NameCollisionPolicy.Replace, false));  // file vs file - must ask again, not reuse Merge
-
+            (NameCollisionPolicy.Merge, true),
+            (NameCollisionPolicy.Replace, false));
         var tracker = new PasteConflictTracker(fake);
 
-        tracker.CurrentItem = Folder(Path("/root/docs"));
-        var first = await tracker.ResolveAsync(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
-
-        tracker.CurrentItem = File(Path("/root/notes.txt"));
-        var second = await tracker.ResolveAsync(Path("/dest/notes.txt"), StorageItemKind.File, CancellationToken.None);
+        var first = await tracker.ForItem(Folder(Path("/root/docs")))(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
+        var second = await tracker.ForItem(File(Path("/root/notes.txt")))(Path("/dest/notes.txt"), StorageItemKind.File, CancellationToken.None);
 
         Assert.Equal(NameCollisionPolicy.Merge, first);
         Assert.Equal(NameCollisionPolicy.Replace, second);
-        Assert.Equal(2, fake.Requests.Count); // proves it asked again instead of silently reusing Merge
+        Assert.Equal(2, fake.Requests.Count);
     }
 
     [Fact]
-    public async Task ResolveAsync_RememberedNonMergePolicy_IsReusedRegardlessOfConflictingKind()
+    public async Task RememberedNonMergePolicy_IsReusedRegardlessOfConflictingKind()
     {
-        // Replace/Skip/GenerateUnique/Fail don't have Merge's directory-only restriction.
         var fake = new FakeConflictResolutionService((NameCollisionPolicy.Skip, true));
         var tracker = new PasteConflictTracker(fake);
 
-        tracker.CurrentItem = File(Path("/root/a.txt"));
-        await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
-
-        tracker.CurrentItem = Folder(Path("/root/docs"));
-        var second = await tracker.ResolveAsync(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
+        await tracker.ForItem(File(Path("/root/a.txt")))(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        var second = await tracker.ForItem(Folder(Path("/root/docs")))(Path("/dest/docs"), StorageItemKind.Directory, CancellationToken.None);
 
         Assert.Equal(NameCollisionPolicy.Skip, second);
         Assert.Single(fake.Requests);
     }
 
     [Fact]
-    public async Task ItemResolutions_RecordsThePolicyForCurrentItem_WhenDestinationNameMatchesIt()
+    public async Task DialogDismissed_InvokesOnAbort_AndRethrows()
     {
-        var fake = new FakeConflictResolutionService((NameCollisionPolicy.Skip, false));
-        var item = File(Path("/root/a.txt"));
-        var tracker = new PasteConflictTracker(fake) { CurrentItem = item };
+        var fake = new FakeConflictResolutionService();
+        fake.DismissNext();
+        var aborted = false;
+        var resolver = new PasteConflictTracker(fake, onAbort: () => aborted = true).ForItem(File(Path("/root/a.txt")));
 
-        await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            resolver(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None));
 
-        Assert.True(tracker.ItemResolutions.TryGetValue(item, out var resolution));
-        Assert.Equal(NameCollisionPolicy.Skip, resolution);
+        Assert.True(aborted);
     }
 
     [Fact]
-    public async Task ItemResolutions_RecordsForARememberedPolicyToo_NotJustAFreshAsk()
+    public async Task JobTokenCancelled_DoesNotInvokeOnAbort()
     {
-        var fake = new FakeConflictResolutionService((NameCollisionPolicy.Replace, true));
-        var tracker = new PasteConflictTracker(fake);
+        // The job itself was cancelled (Cancel button / shutdown) - that's not the user
+        // abandoning the paste via the dialog, so onAbort must stay out of it.
+        var fake = new FakeConflictResolutionService();
+        fake.DismissNext();
+        var aborted = false;
+        var resolver = new PasteConflictTracker(fake, onAbort: () => aborted = true).ForItem(File(Path("/root/a.txt")));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
 
-        var first = File(Path("/root/a.txt"));
-        tracker.CurrentItem = first;
-        await tracker.ResolveAsync(Path("/dest/a.txt"), StorageItemKind.File, CancellationToken.None);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            resolver(Path("/dest/a.txt"), StorageItemKind.File, cts.Token));
 
-        var second = File(Path("/root/b.txt"));
-        tracker.CurrentItem = second;
-        await tracker.ResolveAsync(Path("/dest/b.txt"), StorageItemKind.File, CancellationToken.None); // reused, not asked
-
-        Assert.Equal(NameCollisionPolicy.Replace, tracker.ItemResolutions[first]);
-        Assert.Equal(NameCollisionPolicy.Replace, tracker.ItemResolutions[second]);
+        Assert.False(aborted);
     }
 
     [Theory]

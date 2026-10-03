@@ -1,19 +1,16 @@
 ﻿using ReactiveUI;
 using System;
-using System.Collections.Generic;
 using System.Reactive;
-using System.Text;
 using System.Threading;
 
 namespace FileManager.App.ViewModels;
 
-// Placeholder shape for one in-progress transfer. Whenever your real upload/download
-// logic exists, it just needs to update ProgressPercent as it goes - the bar reacts
-// on its own, same as everything else built with RaiseAndSetIfChanged.
+/// <summary>One paste as shown in the transfers area. Cancel() is public so the conflict
+/// tracker can abandon the whole paste when the dialog is dismissed.</summary>
 public class TransferViewModel : ReactiveObject, IDisposable
 {
-    private double _progressPercent;
     private readonly CancellationTokenSource _cts = new();
+    private double _progressPercent;
     private bool _isMeasuring = true;
     public bool IsMeasuring
     {
@@ -24,7 +21,7 @@ public class TransferViewModel : ReactiveObject, IDisposable
     public TransferViewModel(string name)
     {
         Name = name;
-        CancelCommand = ReactiveCommand.Create(() => _cts.Cancel());
+        CancelCommand = ReactiveCommand.Create(Cancel);
     }
 
     public string Name { get; }
@@ -37,6 +34,12 @@ public class TransferViewModel : ReactiveObject, IDisposable
     }
 
     public ReactiveCommand<Unit, Unit> CancelCommand { get; }
+
+    public void Cancel()
+    {
+        try { _cts.Cancel(); }
+        catch (ObjectDisposedException) { }   // already finished and disposed
+    }
 
     public void Dispose() => _cts.Dispose();
 }
