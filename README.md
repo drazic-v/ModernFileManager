@@ -76,7 +76,7 @@ milestones start — see Roadmap.
 - [x] Phase 1 — Core & async basics
 - [x] Phase 2 — Local storage provider
 - [x] Phase 3 — UI: browsing, multi-select, notifications & dialogs
-- [ ] Phase 4 — Transfer Manager
+- [x] Phase 4 — Transfer Manager
 - [ ] Phase 5 — Docker & Azurite
 - [ ] Phase 6 — Azure provider
 - [ ] Phase 7 — Search, preview & polish
