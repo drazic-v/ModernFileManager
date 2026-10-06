@@ -7,6 +7,7 @@ using FileManager.Core.Transfers;
 using FileManager.TestKit;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
+using System.Text;
 using static FileManager.App.Tests.Fakes.TestItems;
 
 namespace FileManager.App.Tests.Paste
@@ -161,9 +162,7 @@ namespace FileManager.App.Tests.Paste
             await h.Workspace.PasteCommand.Execute();
 
             Assert.Empty(h.Notifications.Successes);
-            Assert.True(await t.Provider.ExistsAsync(t.A.Path, ct));
-            Assert.True(await t.Provider.ExistsAsync(t.A.Path, ct));
-
+            Assert.False(await t.Provider.ExistsAsync(t.Src.Path.Combine("src"), ct));
             Assert.Equal("Can't paste \"src\" into itself.", Assert.Single(h.Notifications.Errors));
         }
 
@@ -181,6 +180,7 @@ namespace FileManager.App.Tests.Paste
 
             Assert.Empty(h.Notifications.Successes);
             Assert.Equal(0, (await FolderInfoCalculator.GetFolderInfo(t.Provider, sub.Path)).Size);
+            Assert.False(await t.Provider.ExistsAsync(sub.Path.Combine("src"), ct));
             Assert.Equal("Can't paste \"src\" into itself.", Assert.Single(h.Notifications.Errors));
         }
 
@@ -218,10 +218,11 @@ namespace FileManager.App.Tests.Paste
         }
 
         [AvaloniaTheory]
-        [InlineData(NameCollisionPolicy.Skip)]
-        [InlineData(NameCollisionPolicy.Replace)]
-        [InlineData(NameCollisionPolicy.GenerateUnique)]
-        public async Task Paste_FileConflict_AppliesChosenPolicy(NameCollisionPolicy policy)
+        [InlineData(NameCollisionPolicy.Skip, 5, null, true)]
+        [InlineData(NameCollisionPolicy.Replace, 10, null, false)]
+        [InlineData(NameCollisionPolicy.GenerateUnique, 5, "a (2).txt", false)]
+        public async Task Paste_FileConflict_AppliesChosenPolicy(
+    NameCollisionPolicy policy, long expectedDestASize, string? expectedExtraFile, bool sourceAStillExists)
         {
             var ct = TestContext.Current.CancellationToken;
             var t = StandardTree();
@@ -232,27 +233,12 @@ namespace FileManager.App.Tests.Paste
             h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: true);
             await h.Workspace.PasteCommand.Execute();
 
-            switch (policy)
-            {
-                case NameCollisionPolicy.Skip:
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
-                    Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
-                    break;
-                case NameCollisionPolicy.Replace:
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
-                    Assert.Equal(10, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
-                    break;
-                case NameCollisionPolicy.GenerateUnique:
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
-                    Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
-                    Assert.Equal(10, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a (2).txt"))).SizeInBytes);
-                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
-                    break;
-                default:
-                    throw new NotImplementedException($"Test not implemented for policy {policy}.");
-            }
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+            Assert.Equal(expectedDestASize, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+            if (expectedExtraFile != null)
+                Assert.Equal(10, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine(expectedExtraFile))).SizeInBytes);
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
+            Assert.Equal(sourceAStillExists, await t.Provider.ExistsAsync(t.A.Path, ct));
         }
 
         [AvaloniaFact]
@@ -269,7 +255,8 @@ namespace FileManager.App.Tests.Paste
             var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest, conflicts);
             h.Workspace.SetClipboard([t.Src], t.Provider, isCut: true);
             await h.Workspace.PasteCommand.Execute();
-            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src"), ct));
+            Assert.Single(conflicts.Requests);
+            Assert.False(await t.Provider.ExistsAsync(t.Src.Path, ct));
             Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("a.txt"), ct));
             Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("b.txt"), ct));
             Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("existing.txt"), ct));
@@ -306,6 +293,8 @@ namespace FileManager.App.Tests.Paste
             h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: true);
             await h.Workspace.PasteCommand.Execute();
             Assert.Single(conflicts.Requests);
+            Assert.Empty(h.Notifications.Errors);
+            Assert.Empty(h.Notifications.Successes);
             Assert.Equal("a.txt", conflicts.Requests[0].ItemName);
             Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("b.txt"))).SizeInBytes);
             Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
@@ -327,10 +316,7 @@ namespace FileManager.App.Tests.Paste
             await paste.WaitAsync(TimeSpan.FromSeconds(5), ct);
             Assert.Empty(h.Notifications.Successes);
             Assert.Empty(h.Notifications.Errors);
-            Assert.Equal(clipboard, h.Workspace.Clipboard);
-            Assert.Null(h.Notifications.Errors.SingleOrDefault(e => e.Contains("cancelled")));
-            Assert.True(await t.Provider.ExistsAsync(t.A.Path, ct));
-            Assert.True(await t.Provider.ExistsAsync(t.B.Path, ct));
+            Assert.Same(clipboard, h.Workspace.Clipboard);
             Assert.False(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
             Assert.False(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
             Assert.NotNull(h.Workspace.Clipboard);
@@ -365,6 +351,7 @@ namespace FileManager.App.Tests.Paste
             await h.Workspace.PasteCommand.Execute();
             Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("nested"), ct));
             Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("nested").Combine("nested.txt"), ct));
+            Assert.Equal(30, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("nested").Combine("nested.txt"))).SizeInBytes);
         }
 
         [AvaloniaFact]
@@ -372,6 +359,8 @@ namespace FileManager.App.Tests.Paste
         {
             var ct = TestContext.Current.CancellationToken;
             var t1 = StandardTree("provider1");
+            t1.Provider.SetContent(t1.A.Path, Encoding.UTF8.GetBytes("hello"));
+            t1.Provider.SetContent(t1.B.Path, Encoding.UTF8.GetBytes("world"));
             var t2 = StandardTree("provider2");
             await using var manager = new TransferManager();
             var h = await OpenWorkspaceAsync(t2.Provider, manager, t2.Dest);
@@ -379,6 +368,10 @@ namespace FileManager.App.Tests.Paste
             await h.Workspace.PasteCommand.Execute();
             Assert.True(await t2.Provider.ExistsAsync(t2.Dest.Path.Combine("a.txt"), ct));
             Assert.True(await t2.Provider.ExistsAsync(t2.Dest.Path.Combine("b.txt"), ct));
+            await using var a = await t2.Provider.OpenReadAsync(t2.Dest.Path.Combine("a.txt"), ct);
+            Assert.Equal("hello", await new StreamReader(a).ReadToEndAsync(ct));
+            await using var b = await t2.Provider.OpenReadAsync(t2.Dest.Path.Combine("b.txt"), ct);
+            Assert.Equal("world", await new StreamReader(b).ReadToEndAsync(ct));
         }
 
         [AvaloniaFact]
