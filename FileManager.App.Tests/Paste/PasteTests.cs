@@ -1,19 +1,12 @@
-﻿using Avalonia.Controls.Shapes;
-using Avalonia.Headless.XUnit;
-using Avalonia.Rendering.Composition.Animations;
+﻿using Avalonia.Headless.XUnit;
 using FileManager.App.Tests.Fakes;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using FileManager.Core.Transfers;
 using FileManager.TestKit;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.Tracing;
 using System.Reactive.Linq;
-using System.Text;
-using Xunit;
-using Xunit.Internal;
+using System.Reactive.Threading.Tasks;
 using static FileManager.App.Tests.Fakes.TestItems;
 
 namespace FileManager.App.Tests.Paste
@@ -47,9 +40,9 @@ namespace FileManager.App.Tests.Paste
         /// /root
         ///   src/  a.txt (10 B), b.txt (20 B)
         ///   dest/ (empty)
-        private static Tree StandardTree()
+        private static Tree StandardTree(string providerId="fake")
         {
-            var provider = new FakeStorageProvider();
+            var provider = new FakeStorageProvider(providerId);
             var root = Path("/root");
             var src = Folder(root.Combine("src"));
             var dest = Folder(root.Combine("dest"));
@@ -297,6 +290,109 @@ namespace FileManager.App.Tests.Paste
             Assert.Equal("a.txt", conflicts.Requests[0].ItemName);
             Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("b.txt"))).SizeInBytes);
             Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+        }
+
+
+        [AvaloniaFact]
+        public async Task Paste_ConflictDialogDismissed_CancelsRemainingItemsSilently()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var conflicts = new FakeConflictResolutionService((NameCollisionPolicy.Replace, true));
+            conflicts.DismissNext();
+            t.Provider.AddChildren(t.Dest.Path.Value, File(t.Dest.Path.Combine("a.txt"), 5), File(t.Dest.Path.Combine("b.txt"), 5));
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest, conflicts);
+            h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.Single(conflicts.Requests);
+            Assert.Equal("a.txt", conflicts.Requests[0].ItemName);
+            Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("b.txt"))).SizeInBytes);
+            Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_CancelledMidTransfer_IsSilentAndKeepsClipboard()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest);
+            h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: false);
+            var clipboard = h.Workspace.Clipboard;
+            var reached = t.Provider.HoldNextCopy();                                  
+            var paste = h.Workspace.PasteCommand.Execute().ToTask();                   
+            await reached.WaitAsync(TimeSpan.FromSeconds(5), ct);                      
+            h.Workspace.ActiveTransfers.Single().Cancel();                             
+            await paste.WaitAsync(TimeSpan.FromSeconds(5), ct);
+            Assert.Empty(h.Notifications.Successes);
+            Assert.Empty(h.Notifications.Errors);
+            Assert.Equal(clipboard, h.Workspace.Clipboard);
+            Assert.Null(h.Notifications.Errors.SingleOrDefault(e => e.Contains("cancelled")));
+            Assert.True(await t.Provider.ExistsAsync(t.A.Path, ct));
+            Assert.True(await t.Provider.ExistsAsync(t.B.Path, ct));
+            Assert.False(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+            Assert.False(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
+            Assert.NotNull(h.Workspace.Clipboard);
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_EmptyFolder_CreatesFolderAtDestination()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            var emptyFolder = Folder(t.Src.Path.Combine("empty"));
+            t.Provider.AddChildren(t.Src.Path.Value, emptyFolder);
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest);
+            h.Workspace.SetClipboard([emptyFolder], t.Provider, isCut: false);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("empty"), ct));
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_NestedFolder_RecreatesStructureAndContent()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            var nestedFolder = Folder(t.Src.Path.Combine("nested"));
+            var nestedFile = File(nestedFolder.Path.Combine("nested.txt"), 30);
+            t.Provider.AddChildren(t.Src.Path.Value, nestedFolder);
+            t.Provider.AddChildren(nestedFolder.Path.Value, nestedFile);
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest);
+            h.Workspace.SetClipboard([nestedFolder], t.Provider, isCut: false);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("nested"), ct));
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("nested").Combine("nested.txt"), ct));
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_AcrossProviders_CopiesContent()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t1 = StandardTree("provider1");
+            var t2 = StandardTree("provider2");
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t2.Provider, manager, t2.Dest);
+            h.Workspace.SetClipboard([t1.A, t1.B], t1.Provider, isCut: false);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.True(await t2.Provider.ExistsAsync(t2.Dest.Path.Combine("a.txt"), ct));
+            Assert.True(await t2.Provider.ExistsAsync(t2.Dest.Path.Combine("b.txt"), ct));
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_AfterCompletion_RemovesTransferAndRefreshesTab()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest);
+            Assert.Empty(h.Workspace.SelectedTab!.Items);
+            h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: false);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.Empty(h.Workspace.ActiveTransfers);
+            Assert.Equal(2, h.Workspace.SelectedTab!.Items.Count);
         }
     }
 }
