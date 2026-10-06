@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
+using Avalonia.Rendering.Composition.Animations;
 using FileManager.App.Tests.Fakes;
 using FileManager.App.ViewModels;
 using FileManager.Core.Models;
@@ -8,6 +9,7 @@ using FileManager.Core.Transfers;
 using FileManager.TestKit;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Tracing;
 using System.Reactive.Linq;
 using System.Text;
 using Xunit;
@@ -201,6 +203,100 @@ namespace FileManager.App.Tests.Paste
             Assert.Empty(h.Notifications.Successes);
             Assert.True(await t.Provider.ExistsAsync(t.A.Path, TestContext.Current.CancellationToken));
             Assert.Equal("Can't move \"a.txt\" to its original location.", Assert.Single(h.Notifications.Errors));
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_CutWithEveryItemRejected_ClearsClipboardAndChangesNothing()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Src);
+            h.Workspace.SetClipboard([t.A, t.Src], t.Provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+
+            Assert.Empty(h.Notifications.Successes);
+            Assert.Null(h.Workspace.Clipboard);
+            Assert.Equal(2, h.Notifications.Errors.Count);
+            Assert.Equal("Can't move \"a.txt\" to its original location.", h.Notifications.Errors[0]);
+            Assert.Equal("Can't paste \"src\" into itself.", h.Notifications.Errors[1]);
+            Assert.True(await t.Provider.ExistsAsync(t.A.Path, ct));
+            Assert.True(await t.Provider.ExistsAsync(t.Src.Path, ct));
+        }
+
+        [AvaloniaTheory]
+        [InlineData(NameCollisionPolicy.Skip)]
+        [InlineData(NameCollisionPolicy.Replace)]
+        [InlineData(NameCollisionPolicy.GenerateUnique)]
+        public async Task Paste_FileConflict_AppliesChosenPolicy(NameCollisionPolicy policy)
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var conflicts = new FakeConflictResolutionService((policy, false));
+            t.Provider.AddChildren(t.Dest.Path.Value, File(t.Dest.Path.Combine("a.txt"), 5));
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest, conflicts);
+            h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+
+            switch (policy)
+            {
+                case NameCollisionPolicy.Skip:
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+                    Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
+                    break;
+                case NameCollisionPolicy.Replace:
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+                    Assert.Equal(10, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
+                    break;
+                case NameCollisionPolicy.GenerateUnique:
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+                    Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
+                    Assert.Equal(10, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a (2).txt"))).SizeInBytes);
+                    Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("b.txt"), ct));
+                    break;
+                default:
+                    throw new NotImplementedException($"Test not implemented for policy {policy}.");
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_FolderConflictMerge_MergesContents()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var conflicts = new FakeConflictResolutionService((NameCollisionPolicy.Merge, false));
+            var existingFolder = Folder(t.Dest.Path.Combine("src"));
+            var existingFile = File(existingFolder.Path.Combine("existing.txt"), 15);
+            t.Provider.AddChildren(t.Dest.Path.Value, existingFolder);
+            t.Provider.AddChildren(existingFolder.Path.Value, existingFile);
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest, conflicts);
+            h.Workspace.SetClipboard([t.Src], t.Provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src"), ct));
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("a.txt"), ct));
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("b.txt"), ct));
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("src").Combine("existing.txt"), ct));
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_ApplyToAllChosen_AsksOnlyOnce()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var conflicts = new FakeConflictResolutionService((NameCollisionPolicy.Skip, true));
+            t.Provider.AddChildren(t.Dest.Path.Value, File(t.Dest.Path.Combine("a.txt"), 5), File(t.Dest.Path.Combine("b.txt"), 5));
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest, conflicts);
+            h.Workspace.SetClipboard([t.A, t.B], t.Provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+            Assert.Single(conflicts.Requests);
+            Assert.Equal("a.txt", conflicts.Requests[0].ItemName);
+            Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("b.txt"))).SizeInBytes);
+            Assert.Equal(5, (await t.Provider.GetInfoAsync(t.Dest.Path.Combine("a.txt"))).SizeInBytes);
         }
     }
 }
