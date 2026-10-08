@@ -95,7 +95,10 @@ namespace FileManager.Infrastructure.Providers
                     {
                         case NameCollisionPolicy.Replace:
                             if (isMove) { File.Delete(destFile); File.Move(file, destFile); }
-                            else File.Replace(file, destFile, null);
+                            else{
+                                File.Delete(destFile);
+                                File.Copy(file, destFile);
+                            }
                             break;
                         case NameCollisionPolicy.GenerateUnique:
                             var destFolder = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(destinationDir) };
@@ -315,7 +318,8 @@ namespace FileManager.Infrastructure.Providers
                     {
                         await Task.Run(() =>
                         {
-                            File.Replace(nativeSource, nativeDestination, null);
+                            File.Delete(nativeDestination);
+                            File.Copy(nativeSource, nativeDestination);
                             progress?.Report(new TransferProgress(new FileInfo(nativeDestination).Length, 1));
                         }, ct);
                     }
