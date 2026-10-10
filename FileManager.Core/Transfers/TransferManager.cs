@@ -296,7 +296,7 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
         }
 
         if (shouldCreate)
-            await destinationProvider.CreateDirectoryAsync(destinationFolder, destinationPath.Name, token);
+            await destinationProvider.CreateDirectoryAsync(destinationFolder, destinationPath.Name, ct:token);
 
         var accumulator = new ByteAccumulator();
         var summary = new FolderTransferSummary();
@@ -352,7 +352,7 @@ public sealed class TransferManager : ITransferManager, IAsyncDisposable
             }
             else
             {
-                await destinationProvider.CreateDirectoryAsync(destinationFolder, item.Name, token);
+                await destinationProvider.CreateDirectoryAsync(destinationFolder, item.Name, NameCollisionPolicy.Merge, token);
                 await RunFolderJobRecursivelyAsync(sourceProvider, destinationProvider, operation,
                     item.Path, destinationFolder.Combine(item.Name), conflictResolver, retryPolicy, token,
                     jobProgress, accumulator, totalBytes, summary);

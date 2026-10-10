@@ -209,12 +209,24 @@ namespace FileManager.Infrastructure.Providers
             }
         }
 
-        public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default) 
+        public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default) 
         {
             if(!FileNameValidator.IsValid(name))
                 throw new ArgumentException("Name is not valid.", nameof(name));
 
-            name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory,null, ct); // Ensure unique name
+           
+            switch (policy)
+            {
+                case NameCollisionPolicy.Merge:
+                    //Do nothing, try to create the directory, if it exists Directory.CreateDirectory will return it regardless, so we can just return the info for it.
+                    break;
+                case NameCollisionPolicy.GenerateUnique:
+                    name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, null, ct); // Ensure unique name
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(policy), policy, null);
+            }
+
             
             var childPath = parent.Combine(name);
             var childNativePath = ToNativePath(childPath.Value);

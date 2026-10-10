@@ -126,7 +126,7 @@ namespace FileManager.TestKit
             throw new FileNotFoundException($"No such item: {path.Value}");
         }
 
-        public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default)
+        public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
             var path = parent.Combine(name);

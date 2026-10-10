@@ -24,7 +24,7 @@ namespace FileManager.Core.Providers
 
         IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, CancellationToken ct = default);
 
-        Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, CancellationToken ct = default);
+        Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default);
 
         Task<StorageItem> GetInfoAsync(StoragePath path,  CancellationToken ct = default);
 
