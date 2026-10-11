@@ -48,17 +48,31 @@ namespace FileManager.TestKit
         [Fact]
         public async Task CopyAsync_LeavesSourceIntact()
         {
-            var created = await Provider.CreateDirectoryAsync(TestRoot, "folder", ct:TestContext.Current.CancellationToken);
+            var filePath = TestRoot.Combine("data.bin");
+            var written = new byte[] { 1, 2, 3, 4, 5 };
+
+            await using (var writeStream = await Provider.OpenWriteAsync(filePath, TestContext.Current.CancellationToken))
+                await writeStream.WriteAsync(written, TestContext.Current.CancellationToken);
+
             var dest = await Provider.CreateDirectoryAsync(TestRoot, "dest", ct:TestContext.Current.CancellationToken);
 
-            ConflictResolver resolver = async (destinationPath, conflictingKind, ct) =>
-            { return NameCollisionPolicy.Skip; };
-            await Provider.CopyAsync(created.Path, dest.Path, resolver, null, TestContext.Current.CancellationToken);
+            ConflictResolver resolver = async (_, _, _) => throw new InvalidOperationException("No conflict expected");
 
             var names = new List<string>();
             await foreach (var item in Provider.ListAsync(TestRoot, TestContext.Current.CancellationToken))
                 names.Add(item.Name);
-            Assert.Contains("folder", names);
+            Assert.Contains("data.bin", names);
+
+            await Provider.CopyAsync(filePath, dest.Path, resolver, ct:TestContext.Current.CancellationToken);
+
+            await using (var sourceStream = await Provider.OpenReadAsync(filePath, TestContext.Current.CancellationToken))
+            {
+                using var memory = new MemoryStream();
+                await sourceStream.CopyToAsync(memory, TestContext.Current.CancellationToken);
+                Assert.Equal(written, memory.ToArray());
+        }
+
+            Assert.True(await Provider.ExistsAsync(dest.Path.Combine("data.bin"), TestContext.Current.CancellationToken));
         }
 
         [Fact]

@@ -126,9 +126,22 @@ namespace FileManager.TestKit
             throw new FileNotFoundException($"No such item: {path.Value}");
         }
 
-        public Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default)
+        public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
+
+            switch (policy)
+            {
+                case NameCollisionPolicy.Merge:
+                    if (_itemsByPath.TryGetValue(parent.Combine(name).Value, out var existing) && existing.Kind == StorageItemKind.File)
+                        name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, null, ct);
+                    break;
+                case NameCollisionPolicy.GenerateUnique:
+                    name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, null, ct); break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(policy), policy, null);
+            }
+
             var path = parent.Combine(name);
             var item = new StorageItem
             {
@@ -147,7 +160,7 @@ namespace FileManager.TestKit
             if (!_children.ContainsKey(path.Value))
                 _children[path.Value] = new List<StorageItem>();
 
-            return Task.FromResult(item);
+            return await Task.FromResult(item);
         }
 
         public Task DeleteAsync(StoragePath path, CancellationToken ct = default)
@@ -163,8 +176,82 @@ namespace FileManager.TestKit
             return Task.CompletedTask;
         }
 
-        public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default) =>
-            throw new NotImplementedException();
+        public Task<StorageItem> RenameAsync(StoragePath path, string newName, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!FileNameValidator.IsValid(newName))
+                throw new ArgumentException("Name is not valid.", nameof(newName));
+            if (!_itemsByPath.TryGetValue(path.Value, out var item))
+                throw new FileNotFoundException($"No such item: {path.Value}");
+
+            var parent = path.Parent() ?? throw new InvalidOperationException("Cannot rename root path.");
+            var newPath = parent.Combine(newName);
+
+            if (newPath.Value == path.Value)
+                return Task.FromResult(item); // same name: nothing to do
+
+            // A sibling already has that name. (A case-only rename like "docs" -> "Docs" is allowed through.)
+            if (_itemsByPath.ContainsKey(newPath.Value) && !StoragePath.PathsEqual(newPath, path))
+                throw new IOException($"An item named '{newName}' already exists in {parent.Value}.");
+
+            // One place that maps an old path to its new path. The item itself maps straight to newPath,
+            // so we never call Combine("").
+            StoragePath Rebase(StoragePath old) =>
+                old.Value == path.Value
+                    ? newPath
+                    : newPath.Combine(old.Value.Substring(path.Value.Length).TrimStart('/'));
+
+            // Pass 1: build the new item for the renamed item and everything under it. Nothing is mutated yet.
+            var moved = new Dictionary<string, StorageItem>(_itemsByPath.Comparer);
+            foreach (var old in _itemsByPath.Values.Where(i => StoragePath.IsSameOrDescendant(i.Path, path)).ToList())
+            {
+                var p = Rebase(old.Path);
+                moved[old.Path.Value] = new StorageItem
+                {
+                    Path = p,
+                    Name = p.Name,
+                    Kind = old.Kind,
+                    SizeInBytes = old.SizeInBytes,
+                    ContentType = old.ContentType,
+                    Attributes = old.Attributes
+                };
+            }
+
+            // Pass 2a: take every old entry out first. Removing before adding means old and new keys can
+            // never clobber each other, even when the dictionary is case-insensitive.
+            var oldChildren = new Dictionary<string, List<StorageItem>>(moved.Comparer);
+            var oldContent = new Dictionary<string, byte[]>(moved.Comparer);
+            foreach (var oldKey in moved.Keys)
+            {
+                _itemsByPath.Remove(oldKey);
+                if (_children.Remove(oldKey, out var list)) oldChildren[oldKey] = list;
+                if (_content.Remove(oldKey, out var bytes)) oldContent[oldKey] = bytes;
+            }
+
+            // Pass 2b: put everything back under its new key. Child lists are rebuilt from the NEW items.
+            foreach (var (oldKey, newItem) in moved)
+            {
+                _itemsByPath[newItem.Path.Value] = newItem;
+
+                if (oldChildren.TryGetValue(oldKey, out var list))
+                    _children[newItem.Path.Value] = list
+                        .Select(c => moved.TryGetValue(c.Path.Value, out var m) ? m : c)
+                        .ToList();
+
+                if (oldContent.TryGetValue(oldKey, out var bytes))
+                    _content[newItem.Path.Value] = bytes;
+            }
+
+            // The parent's listing: swap the old entry for the renamed one.
+            var renamed = moved[path.Value];
+            if (!_children.TryGetValue(parent.Value, out var siblings))
+                _children[parent.Value] = siblings = new List<StorageItem>();
+            siblings.RemoveAll(i => StoragePath.PathsEqual(i.Path, path));
+            siblings.Add(renamed);
+
+            return Task.FromResult(renamed);
+        }
 
         public Task OpenFileAsync(StoragePath path, CancellationToken ct = default) =>
             throw new NotImplementedException();
@@ -187,6 +274,9 @@ namespace FileManager.TestKit
     StoragePath source, StoragePath destinationFolder, ConflictResolver resolver,
     IProgress<TransferProgress>? progress, CancellationToken ct)
         {
+            if (!_children.ContainsKey(destinationFolder.Value))
+                throw new DirectoryNotFoundException($"Destination folder does not exist: {destinationFolder.Value}");
+
             ct.ThrowIfCancellationRequested();
             MaybeThrowScriptedCopyFailure();
 
