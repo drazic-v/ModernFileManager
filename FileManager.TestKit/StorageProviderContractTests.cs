@@ -70,7 +70,7 @@ namespace FileManager.TestKit
                 using var memory = new MemoryStream();
                 await sourceStream.CopyToAsync(memory, TestContext.Current.CancellationToken);
                 Assert.Equal(written, memory.ToArray());
-        }
+            }
 
             Assert.True(await Provider.ExistsAsync(dest.Path.Combine("data.bin"), TestContext.Current.CancellationToken));
         }
@@ -197,6 +197,64 @@ namespace FileManager.TestKit
                 () => Provider.CreateDirectoryAsync(TestRoot, "folder", policy, ct:TestContext.Current.CancellationToken));
 
             Assert.Empty(await ListRootAsync()); // and nothing was created on the way out
+        }
+
+        [Fact]
+        public async Task RenameAsync_Folder_MovesChildrenUnderNewPath()
+        {
+            var folder = await Provider.CreateDirectoryAsync(TestRoot, "docs", ct:TestContext.Current.CancellationToken);
+            await using (await Provider.OpenWriteAsync(folder.Path.Combine("a.txt"), ct: TestContext.Current.CancellationToken)) { }
+
+            var renamed = await Provider.RenameAsync(folder.Path, "papers", ct:TestContext.Current.CancellationToken);
+
+            var rootNames = new List<string>();
+            await foreach (var i in Provider.ListAsync(TestRoot, ct:TestContext.Current.CancellationToken)) rootNames.Add(i.Name);
+            Assert.Contains("papers", rootNames);
+            Assert.DoesNotContain("docs", rootNames);
+
+            var children = new List<StorageItem>();
+            await foreach (var i in Provider.ListAsync(renamed.Path, ct:TestContext.Current.CancellationToken)) children.Add(i);
+            var child = Assert.Single(children);
+            Assert.Equal(renamed.Path.Combine("a.txt"), child.Path);
+        }
+
+        [Fact]
+        public async Task CopyAsync_IntoMissingFolder_ThrowsAndCreatesNothing()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var filePath = TestRoot.Combine("data.bin");
+            await using (var s = await Provider.OpenWriteAsync(filePath, ct))
+                await s.WriteAsync(new byte[] { 1, 2, 3 }, ct);
+
+            ConflictResolver resolver = (_, _, _) => throw new InvalidOperationException("No conflict expected");
+            var missing = TestRoot.Combine("missing");
+
+            await Assert.ThrowsAsync<DirectoryNotFoundException>(
+                () => Provider.CopyAsync(filePath, missing, resolver, ct: ct));
+
+            Assert.False(await Provider.ExistsAsync(missing.Combine("data.bin"), ct));
+        }
+
+        [Fact]
+        public async Task CreateDirectoryAsync_Merge_WhenFileHasTheName_CreatesDifferentFolderAndKeepsFile()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var filePath = TestRoot.Combine("x");
+            var bytes = new byte[] { 7, 7, 7 };
+            await using (var s = await Provider.OpenWriteAsync(filePath, ct))
+                await s.WriteAsync(bytes, ct);
+
+            var created = await Provider.CreateDirectoryAsync(TestRoot, "x", NameCollisionPolicy.Merge, ct);
+
+            Assert.NotEqual(filePath, created.Path);
+            Assert.Equal(StorageItemKind.Directory, created.Kind);
+
+            var file = await Provider.GetInfoAsync(filePath, ct);
+            Assert.Equal(StorageItemKind.File, file.Kind);
+            await using var read = await Provider.OpenReadAsync(filePath, ct);
+            using var memory = new MemoryStream();
+            await read.CopyToAsync(memory, ct);
+            Assert.Equal(bytes, memory.ToArray()); // the file wasn't touched
         }
     }
 }

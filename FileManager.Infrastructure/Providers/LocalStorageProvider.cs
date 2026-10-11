@@ -218,7 +218,10 @@ namespace FileManager.Infrastructure.Providers
             switch (policy)
             {
                 case NameCollisionPolicy.Merge:
-                    //Do nothing, try to create the directory, if it exists Directory.CreateDirectory will return it regardless, so we can just return the info for it.
+                    // Reuse an existing folder. If a *file* already holds this name, Directory.CreateDirectory
+                    // would throw, so behave like GenerateUnique instead.
+                    if (File.Exists(ToNativePath(parent.Combine(name).Value)))
+                        name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, null, ct);
                     break;
                 case NameCollisionPolicy.GenerateUnique:
                     name = await UniqueNameGenerator.GenerateAsync(this, parent, name, StorageItemKind.Directory, null, ct); // Ensure unique name
