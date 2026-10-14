@@ -47,7 +47,7 @@ namespace FileManager.App.ViewModels
                         var progress = new Progress<FolderInfoCalculator.FolderInfo>(info =>
                             MultiSelectionSizeBytes = runningTotal + info.Size);
 
-                        var result = await Task.Run(() => FolderInfoCalculator.GetFolderInfo(_provider, item.Path, progress, token), token);
+                        var result = await FolderInfoCalculator.GetFolderInfo(_provider, item.Path, progress, token);
                         completedTotal += result.Size;
                     }
                     else

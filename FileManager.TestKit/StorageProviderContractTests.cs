@@ -2,6 +2,7 @@
 using FileManager.Core.Providers;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Text;
 
 namespace FileManager.TestKit
@@ -127,7 +128,7 @@ namespace FileManager.TestKit
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
                 await foreach (var _ in Provider.ListAsync(TestRoot, cts.Token)) { }
             });
@@ -255,6 +256,34 @@ namespace FileManager.TestKit
             using var memory = new MemoryStream();
             await read.CopyToAsync(memory, ct);
             Assert.Equal(bytes, memory.ToArray()); // the file wasn't touched
+        }
+
+        public async Task CreateTempFiles(int howMany, CancellationToken ct = default)
+        {
+            for (int i = 1; i <= howMany; i++)
+            {
+                var filePath = TestRoot.Combine("file_"+i.ToString()+".bin");
+                await using (var s = await Provider.OpenWriteAsync(filePath, ct))
+                    await s.WriteAsync(new byte[] { 1, 2, 3 }, ct);
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(100)]
+        [InlineData(250)]
+        public async Task ListAsyncBatch_GetsUniqueNames(int howMany)
+        {
+            await CreateTempFiles(howMany, TestContext.Current.CancellationToken);
+            var results = new List<StorageItem>(howMany);
+            await foreach(var item in Provider.ListAsync(TestRoot, TestContext.Current.CancellationToken))
+            {
+                results.Add(item);
+            }
+
+            var hashResults = results.ToHashSet();
+
+            Assert.True(hashResults.Count == howMany);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using FileManager.Core.Models;
 using FileManager.Core.Providers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -138,7 +139,8 @@ namespace FileManager.Infrastructure.Providers
                 }
             }
         }
-        public async Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default)
+        public Task<StorageItem> GetInfoAsync(StoragePath path, CancellationToken ct = default) => Task.FromResult(BuildItem(path, ct));
+        private StorageItem BuildItem(StoragePath path, CancellationToken ct = default)
         {
             var nativePath = ToNativePath(path.Value);
             var isDir = Directory.Exists(nativePath);
@@ -164,49 +166,50 @@ namespace FileManager.Infrastructure.Providers
             return Directory.Exists(nativePath) || File.Exists(nativePath);
         }
 
-        public async IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, [EnumeratorCancellation] CancellationToken ct = default) 
+        public async IAsyncEnumerable<StorageItem> ListAsync(StoragePath folder, [EnumeratorCancellation] CancellationToken ct = default)
         {
             var nativePath = ToNativePath(folder.Value);
-            var dirInfo = new DirectoryInfo(nativePath);
+            int batchSize = 100; // Number of items to fetch in each batch
 
-            FileInfo[] files;
-            DirectoryInfo[] directories;
+            IEnumerator<string>? e = null;
+            try {
+                while (true)
+                {
+                    var (itemList, finished) = await Task.Run(() =>
+                    {
+                        e ??= Directory.EnumerateFileSystemEntries(nativePath).GetEnumerator();
 
-            try
-            {
-                files = dirInfo.GetFiles();
-                directories = dirInfo.GetDirectories();
+                        var items = new List<StorageItem>(batchSize);
+                        var done = false;
+
+                        while (items.Count < batchSize && !done)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            if (!e.MoveNext()) { done = true; break; }
+
+                            var entry = e.Current;
+                            StorageItem? item = RetrieveEntry(entry);
+                            if (item is not null)
+                                items.Add(item);
+                        }
+
+                        return (items, done);
+                    }, ct);
+
+                    foreach (var item in itemList) yield return item;
+                    if (finished) yield break;
+                }
             }
-            catch (UnauthorizedAccessException)
-            {
-                yield break; // Skip this instance if access is denied
-            }
+            finally { e?.Dispose(); }
+        }
 
-            foreach (var file in files)
-            {
-                ct.ThrowIfCancellationRequested();
-                var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(file.FullName) };
-                
-                StorageItem? item = null;
-                try { item = await GetInfoAsync(childPath, ct); }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
-                
-                if (item is not null)
-                    yield return item;
-            }
-
-            foreach (var directory in directories)
-            {
-                ct.ThrowIfCancellationRequested();
-                var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(directory.FullName) };
-                
-                StorageItem? item = null;
-                try { item = await GetInfoAsync(childPath, ct); }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
-
-                if (item is not null)
-                    yield return item;
-            }
+        private StorageItem? RetrieveEntry(string entry)
+        {
+            var childPath = new StoragePath { ProviderId = ProviderId, Value = ToStoragePathValue(entry!) };
+            StorageItem? item = null;
+            try { item = BuildItem(childPath); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+            return item;
         }
 
         public async Task<StorageItem> CreateDirectoryAsync(StoragePath parent, string name, NameCollisionPolicy policy = NameCollisionPolicy.GenerateUnique, CancellationToken ct = default) 
