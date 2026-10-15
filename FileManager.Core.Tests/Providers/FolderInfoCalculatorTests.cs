@@ -21,7 +21,7 @@ namespace FileManager.Core.Tests.Providers
             var provider = new FakeStorageProvider();
             var folder = new StoragePath { ProviderId = "fake", Value = "/root" };
 
-            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder);
+            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder, ct: TestContext.Current.CancellationToken);
 
             Assert.Equal(0, result.Size);
             Assert.Equal(0, result.Files);
@@ -37,7 +37,7 @@ namespace FileManager.Core.Tests.Providers
                 MakeFile(folder, "a.txt", 10),
                 MakeFile(folder, "b.txt", 20));
 
-            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder);
+            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder, ct: TestContext.Current.CancellationToken);
 
             Assert.Equal(30, result.Size);
             Assert.Equal(2, result.Files);
@@ -57,7 +57,7 @@ namespace FileManager.Core.Tests.Providers
             provider.AddChildren(sub.Value,
                 MakeFile(sub, "b.txt", 20));
 
-            var result = await FolderInfoCalculator.GetFolderInfo(provider, root);
+            var result = await FolderInfoCalculator.GetFolderInfo(provider, root, ct: TestContext.Current.CancellationToken);
 
             Assert.Equal(30, result.Size);
             Assert.Equal(2, result.Files);
@@ -72,7 +72,7 @@ namespace FileManager.Core.Tests.Providers
             provider.AddChildren("/root",
                 new StorageItem { Path = folder.Combine("mystery"), Name = "mystery", Kind = StorageItemKind.File, SizeInBytes = null });
 
-            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder);
+            var result = await FolderInfoCalculator.GetFolderInfo(provider, folder, ct:TestContext.Current.CancellationToken);
 
             Assert.Equal(0, result.Size);
             Assert.Equal(1, result.Files);
@@ -89,6 +89,55 @@ namespace FileManager.Core.Tests.Providers
 
             await Assert.ThrowsAsync<OperationCanceledException>(() =>
                 FolderInfoCalculator.GetFolderInfo(provider, folder, null, cts.Token));
+        }
+
+        private static readonly StoragePath Root = new() { ProviderId = "fake", Value = "/root" };
+
+        [Fact]
+        public async Task GetFolderInfo_UnreadableSubfolder_IsSkippedAndCounted_RestStillMeasured()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var provider = new FakeStorageProvider();
+
+            provider.AddChildren(Root.Value, MakeFile(Root, "a.bin", 3));
+            var ok = await provider.CreateDirectoryAsync(Root, "ok", ct: ct);
+            provider.AddChildren(ok.Path.Value, MakeFile(ok.Path, "b.bin", 5));
+            var denied = await provider.CreateDirectoryAsync(Root, "denied", ct: ct);
+            provider.AddChildren(denied.Path.Value, MakeFile(denied.Path, "hidden.bin", 100));
+            provider.ThrowOnList(denied.Path.Value, new UnauthorizedAccessException("Simulated exception"));
+
+            var info = await FolderInfoCalculator.GetFolderInfo(provider, Root, ct: ct);
+
+            Assert.Equal(1, info.Skipped);
+            Assert.Equal(2, info.Folders);   // "ok" + "denied": skipped folders still count as folders
+            Assert.Equal(2, info.Files);     // a.bin + b.bin, NOT hidden.bin
+            Assert.Equal(8, info.Size);      
+        }
+
+        [Fact]
+        public async Task GetFolderInfo_UnreadableTopLevelFolder_Throws()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var provider = new FakeStorageProvider();
+            var denied = await provider.CreateDirectoryAsync(Root, "denied", ct: ct);
+            provider.ThrowOnList(denied.Path.Value, new UnauthorizedAccessException("Simulated exception"));
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(
+                () => FolderInfoCalculator.GetFolderInfo(provider, denied.Path, ct: ct));
+        }
+
+        [Fact]
+        public async Task GetFolderInfo_Cancellation_IsNotSwallowedBySkipLogic()
+        {
+            var provider = new FakeStorageProvider();
+            var sub = await provider.CreateDirectoryAsync(Root, "sub", ct: TestContext.Current.CancellationToken);
+            provider.AddChildren(sub.Path.Value, MakeFile(sub.Path, "b.bin", 5));
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => FolderInfoCalculator.GetFolderInfo(provider, Root, ct: cts.Token));
         }
     }
 }
