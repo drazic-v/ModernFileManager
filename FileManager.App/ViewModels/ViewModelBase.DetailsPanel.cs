@@ -83,6 +83,7 @@ namespace FileManager.App.ViewModels
             FolderSizeInBytes = null;
             FolderFileCount = null;
             FolderFolderCount = null;
+            FoldersSkipped = null;
 
             if (!IsDetailsPanelOpen || SelectedItems.Count != 1 || SelectedItems[0].Kind != StorageItemKind.Directory)
                 return;
@@ -97,13 +98,14 @@ namespace FileManager.App.ViewModels
                 FolderSizeInBytes = info.Size;
                 FolderFileCount = info.Files;
                 FolderFolderCount = info.Folders;
+                FoldersSkipped = info.Skipped;
             });
 
             await Dispatcher.Yield(DispatcherPriority.Background); // let the Cancel button actually paint before the heavy work starts
 
             try
             {
-                await Task.Run(() => FolderInfoCalculator.GetFolderInfo(_provider, folder.Path, progress, token), token);
+                await FolderInfoCalculator.GetFolderInfo(_provider, folder.Path, progress, token);        
             }
             catch (OperationCanceledException)
             {

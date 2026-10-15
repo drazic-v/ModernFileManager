@@ -279,6 +279,7 @@
                             <TextBlock Text="{Binding SelectedTab.FolderSizeInBytes, Converter={StaticResource BytesToSizeConverter}, StringFormat='Total size: {0}'}"/>
                             <TextBlock Text="{Binding SelectedTab.FolderFileCount, StringFormat='Files: {0}'}"/>
                             <TextBlock Text="{Binding SelectedTab.FolderFolderCount, StringFormat='Folders: {0}'}"/>
+                            <TextBlock IsVisible="{Binding SelectedTab.HasSkippedFolders}" Text="{Binding SelectedTab.FoldersSkipped, StringFormat='Skipped: {0}'}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

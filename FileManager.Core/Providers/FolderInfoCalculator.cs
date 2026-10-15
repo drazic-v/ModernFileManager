@@ -13,7 +13,8 @@ namespace FileManager.Core.Providers
         public readonly record struct FolderInfo(
             long Size,
             int Files,
-            int Folders);
+            int Folders,
+            int Skipped);
 
         public static async Task<FolderInfo> GetFolderInfo(
             IStorageProvider provider,
@@ -52,7 +53,8 @@ namespace FileManager.Core.Providers
                 if (item.IsFolder)
                 {
                     accumulator.Folders++;
-                    await CalculateSizeInBytesRecursive(provider, item.Path, accumulator, progress, ct);
+                    try { await CalculateSizeInBytesRecursive(provider, item.Path, accumulator, progress, ct); }
+                    catch (UnauthorizedAccessException) { accumulator.Skipped++; }
                 }
                 else
                 {
@@ -74,10 +76,11 @@ namespace FileManager.Core.Providers
             public long SizeInBytes;
             public int Files;
             public int Folders;
+            public int Skipped;
             public int ItemsProcessed;
 
             public FolderInfo ToFolderInfo() =>
-                new(SizeInBytes, Files, Folders);
+                new(SizeInBytes, Files, Folders, Skipped);
         }
     }
 

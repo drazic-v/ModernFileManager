@@ -43,6 +43,7 @@ public abstract partial class ViewModelBase : ReactiveObject, IDisposable
     public string DisplayPath => _displayPath.Value;
 
     private long? _folderSizeInBytes;
+    private int? _foldersSkipped;
     private int? _folderFileCount;
     private int? _folderFolderCount;
     private bool _isFolderInfoLoading;
@@ -52,7 +53,15 @@ public abstract partial class ViewModelBase : ReactiveObject, IDisposable
     public int? FolderFileCount { get => _folderFileCount; private set => this.RaiseAndSetIfChanged(ref _folderFileCount, value); }
     public int? FolderFolderCount { get => _folderFolderCount; private set => this.RaiseAndSetIfChanged(ref _folderFolderCount, value); }
     public bool IsFolderInfoLoading { get => _isFolderInfoLoading; private set => this.RaiseAndSetIfChanged(ref _isFolderInfoLoading, value); }
-
+    public int? FoldersSkipped {
+        get => _foldersSkipped;
+        private set
+        {
+            this.RaiseAndSetIfChanged(ref _foldersSkipped, value);
+            this.RaisePropertyChanged(nameof(HasSkippedFolders));
+        }
+    }
+    public bool HasSkippedFolders => FoldersSkipped > 0;
 
     private long? _multiSelectionSizeBytes;
     public long? MultiSelectionSizeBytes { get => _multiSelectionSizeBytes; private set => this.RaiseAndSetIfChanged(ref _multiSelectionSizeBytes, value); }
