@@ -32,7 +32,8 @@ namespace FileManager.Core.Models
         }
 
         public static bool PathsEqual(StoragePath path1, StoragePath path2) =>
-    string.Equals(path1.Value, path2.Value, StringComparison.Ordinal);
+            string.Equals(path1.ProviderId, path2.ProviderId, StringComparison.Ordinal) &&
+            string.Equals(path1.Value, path2.Value, StringComparison.Ordinal);
 
         public static bool IsSameOrDescendant(StoragePath candidate, StoragePath ancestor)
         {
