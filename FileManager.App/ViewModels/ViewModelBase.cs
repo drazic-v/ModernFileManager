@@ -17,6 +17,7 @@ namespace FileManager.App.ViewModels;
 
 public abstract partial class ViewModelBase : ReactiveObject, IDisposable
 {
+    private bool _disposed;
     private bool _showHiddenItems;
     private bool _canGoBack;
     private bool _isSearchActive;
@@ -150,6 +151,7 @@ public abstract partial class ViewModelBase : ReactiveObject, IDisposable
 
     public ViewModelBase(IStorageProvider provider, StoragePath startingFolder, string displayName, INotificationService notifications)
     {
+        _disposed = false;
         _showHiddenItems = false;
         _provider = provider;
         _currentFolder = startingFolder;
@@ -183,6 +185,7 @@ public abstract partial class ViewModelBase : ReactiveObject, IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _tabName.Dispose();
         _currentOperationCts?.Cancel();
         _currentOperationCts?.Dispose();

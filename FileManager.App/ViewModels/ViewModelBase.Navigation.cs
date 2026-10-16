@@ -82,6 +82,7 @@ namespace FileManager.App.ViewModels
 
         public async Task RefreshAsync()
         {
+            if (_disposed) return;
             await LoadAsync(CurrentFolder);
         }
 
