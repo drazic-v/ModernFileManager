@@ -58,9 +58,10 @@ public partial class MainWindow : Window
         var dialog = new ConfirmDialog(message, items.Select(i => i.Name).ToList());
         if (await dialog.ShowDialog<bool>(this))
         {
+            var destFolder = tab.CurrentFolder;
             await tab.DeleteItemsAsync(items);
             if (DataContext is WorkspaceViewModel workspace)
-                await workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
+                await workspace.RefreshTabsViewingAsync(destFolder);
         }
     }
 
@@ -109,9 +110,10 @@ public partial class MainWindow : Window
     }
     private async Task RenameAndRefreshAsync(MainViewModel tab, StorageItem item, string newName)
     {
+        var destFolder = tab.CurrentFolder;
         await tab.RenameItemAsync(item, newName);
         if (DataContext is WorkspaceViewModel workspace)
-            await workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
+            await workspace.RefreshTabsViewingAsync(destFolder);
     }
 
     private async void OnNewFolderMenuItemClick(object? sender, RoutedEventArgs e)
@@ -128,9 +130,8 @@ public partial class MainWindow : Window
 
         BeginProgrammaticEdit(grid);
 
-
         if (DataContext is WorkspaceViewModel workspace)
-            _ = workspace.RefreshTabsViewingAsync(tab, tab.CurrentFolder);
+            _ = workspace.RefreshTabsViewingAsync(tab.CurrentFolder);
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

@@ -6,6 +6,8 @@ using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Threading.Tasks;
@@ -102,10 +104,18 @@ public class WorkspaceViewModel : ReactiveObject
             SelectedTab = Tabs.Count > 0 ? Tabs[Math.Max(0, index - 1)] : null;
     }
 
-    public async Task RefreshTabsViewingAsync(MainViewModel exclude, StoragePath folder)
+    public async Task RefreshTabsViewingAsync(StoragePath folder)
     {
-        foreach (var tab in Tabs.Where(t => t != exclude && StoragePath.PathsEqual(t.CurrentFolder, folder)))
-            await tab.RefreshAsync();
+        var tabList = Tabs.Where(t => StoragePath.Equals(t.CurrentFolder, folder)).ToList();
+        foreach (var tab in tabList)
+            try
+            {
+                await tab.RefreshAsync();
+            }
+            catch(Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
     }
 
     public void SetClipboard(IReadOnlyList<StorageItem> items, IStorageProvider provider, bool isCut)
@@ -118,14 +128,17 @@ public class WorkspaceViewModel : ReactiveObject
     {
         if (Clipboard is not { } clip || SelectedTab is not { } target) return;
 
+        var destinationFolder = target.CurrentFolder;
+
         // These guards compare paths, so they only make sense within one provider.
+
         var sameProvider = clip.SourceProvider.ProviderId == target.Provider.ProviderId;
 
         var itemsToProcess = new List<StorageItem>();
         foreach (var item in clip.Items)
         {
             if (sameProvider && clip.IsCut && item.Path.Parent() is { } itemParent
-                && StoragePath.PathsEqual(itemParent, target.CurrentFolder))
+                && StoragePath.PathsEqual(itemParent, destinationFolder))
             {
                 _notifications.ShowError($"Can't move \"{item.Name}\" to its original location.");
                 continue;
@@ -133,7 +146,7 @@ public class WorkspaceViewModel : ReactiveObject
 
             // Blocks pasting a folder into itself AND into any of its own subfolders.
             if (sameProvider && item.Kind == StorageItemKind.Directory
-                && StoragePath.IsSameOrDescendant(target.CurrentFolder, item.Path))
+                && StoragePath.IsSameOrDescendant(destinationFolder, item.Path))
             {
                 _notifications.ShowError($"Can't paste \"{item.Name}\" into itself.");
                 continue;
@@ -147,6 +160,16 @@ public class WorkspaceViewModel : ReactiveObject
             if (clip.IsCut) Clipboard = null;
             return;
         }
+
+        var parents = new HashSet<StoragePath>(StoragePathComparer.Instance);
+        if (clip.IsCut)
+            foreach (var el in itemsToProcess)
+            {
+                var currParent = el.Path.Parent();
+                if (currParent is not null)
+                    parents.Add(currParent);
+            }
+
 
         var transfer = new TransferViewModel(itemsToProcess.Count == 1 ? itemsToProcess[0].Name : $"{itemsToProcess.Count} items");
         ActiveTransfers.Add(transfer);
@@ -176,7 +199,7 @@ public class WorkspaceViewModel : ReactiveObject
                     SourceProvider = clip.SourceProvider,
                     SourcePath = item.Path,
                     DestinationProvider = target.Provider,
-                    DestinationFolder = target.CurrentFolder,
+                    DestinationFolder = destinationFolder,
                     Operation = clip.IsCut ? TransferOperation.Move : TransferOperation.Copy,
                     ConflictResolver = tracker.ForItem(item)
                 };
@@ -214,11 +237,11 @@ public class WorkspaceViewModel : ReactiveObject
             transfer.Dispose();
         }
 
-        await target.RefreshAsync();
-        await RefreshTabsViewingAsync(target, target.CurrentFolder);
+        await RefreshTabsViewingAsync(destinationFolder);
 
-        if (clip.IsCut && clip.Items[0].Path.Parent() is { } sourceParent)
-            await RefreshTabsViewingAsync(target, sourceParent);
+        if (clip.IsCut)
+            foreach(var parent in parents)
+                await RefreshTabsViewingAsync(parent);
     }
 
     private void ShowPasteSummary(bool isCut, IReadOnlyList<PasteBatch.Entry> entries)
