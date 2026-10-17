@@ -41,5 +41,55 @@ namespace FileManager.Core.Tests.Models
             var parent = path.Parent();
             Assert.Null(parent);
         }
+
+        [Fact]
+        public void PathsEqual_SameValueDifferentProvider_IsFalse()
+        {
+            var local = new StoragePath { ProviderId = "local", Value = "/Docs" };
+            var azure = new StoragePath { ProviderId = "azure", Value = "/Docs" };
+
+            Assert.False(StoragePath.PathsEqual(local, azure));
+        }
+
+        [Fact]
+        public void PathsEqual_SameProviderAndValue_IsTrue()
+        {
+            var a = new StoragePath { ProviderId = "local", Value = "/Docs" };
+            var b = new StoragePath { ProviderId = "local", Value = "/Docs" };
+
+            Assert.True(StoragePath.PathsEqual(a, b));
+        }
+
+        [Fact]
+        public void IsSameOrDescendant_AcrossProviders_IsFalse()
+        {
+            var ancestor = new StoragePath { ProviderId = "local", Value = "/Docs" };
+            var candidate = new StoragePath { ProviderId = "azure", Value = "/Docs/sub" };
+
+            Assert.False(StoragePath.IsSameOrDescendant(candidate, ancestor));
+        }
+
+        [Fact]
+        public void Comparer_DedupesEqualPaths_ButKeepsDifferentProvidersApart()
+        {
+            var set = new HashSet<StoragePath>(StoragePathComparer.Instance)
+    {
+        new() { ProviderId = "local", Value = "/Docs" },
+        new() { ProviderId = "local", Value = "/Docs" },   // separate instance, same path
+        new() { ProviderId = "azure", Value = "/Docs" },   // same value, other provider
+    };
+
+            Assert.Equal(2, set.Count);
+        }
+
+        [Fact]
+        public void Comparer_HandlesNulls()
+        {
+            var path = new StoragePath { ProviderId = "local", Value = "/Docs" };
+
+            Assert.True(StoragePathComparer.Instance.Equals(null, null));
+            Assert.False(StoragePathComparer.Instance.Equals(path, null));
+            Assert.False(StoragePathComparer.Instance.Equals(null, path));
+        }
     }
 }
