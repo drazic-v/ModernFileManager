@@ -387,5 +387,86 @@ namespace FileManager.App.Tests.Paste
             Assert.Empty(h.Workspace.ActiveTransfers);
             Assert.Equal(2, h.Workspace.SelectedTab!.Items.Count);
         }
+
+        /// Opens one more tab on "/root", then navigates it into <paramref name="folder"/>. The new tab
+        /// ends up selected. SelectedTab is cleared first because AddTab copies the selected tab's folder.
+        private static async Task<MainViewModel> AddTabAtAsync(Harness h, StorageItem folder)
+        {
+            h.Workspace.SelectedTab = null;
+            await h.Workspace.AddTabCommand.Execute();
+            var tab = h.Workspace.SelectedTab!;
+            await tab.RefreshAsync();
+            await tab.NavigateIntoAsync(folder);
+            return tab;
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_DestinationTabClosedMidPaste_NoError_AndOtherTabOnDestinationRefreshes()
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var t = StandardTree();
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(t.Provider, manager, t.Dest);
+            var watcher = h.Workspace.SelectedTab!;                 // stays open on dest
+            var target = await AddTabAtAsync(h, t.Dest);            // also on dest, selected => paste target
+            h.Workspace.SetClipboard([t.A], t.Provider, isCut: false);
+
+            var held = t.Provider.HoldNextCopy();
+            var paste = h.Workspace.PasteCommand.Execute().ToTask();
+            await held.WaitAsync(TimeSpan.FromSeconds(5), ct);      // the copy is really parked now
+
+            await h.Workspace.CloseTabCommand.Execute(target);
+            t.Provider.ReleaseHeldCopy();
+            await paste;
+
+            Assert.True(await t.Provider.ExistsAsync(t.Dest.Path.Combine("a.txt"), ct));
+            Assert.Empty(h.Notifications.Errors);
+            Assert.DoesNotContain(target, h.Workspace.Tabs);
+            Assert.Contains(watcher.Items, i => i.Name == "a.txt"); // refreshed even though its twin was closed
+        }
+
+        [AvaloniaFact]
+        public async Task Paste_CutFromTwoFolders_RefreshesEverySourceFolder()
+        {
+            var ct = TestContext.Current.CancellationToken;
+
+            // /root
+            //   one/  a.txt
+            //   two/  b.txt
+            //   dest/ (empty)
+            var provider = new FakeStorageProvider("fake");
+            var root = Path("/root");
+            var one = Folder(root.Combine("one"));
+            var two = Folder(root.Combine("two"));
+            var dest = Folder(root.Combine("dest"));
+            var a = File(one.Path.Combine("a.txt"), 10);
+            var b = File(two.Path.Combine("b.txt"), 20);
+            provider.AddChildren(root.Value, one, two, dest);
+            provider.AddChildren(one.Path.Value, a);
+            provider.AddChildren(two.Path.Value, b);
+            provider.AddChildren(dest.Path.Value);
+
+            await using var manager = new TransferManager();
+            var h = await OpenWorkspaceAsync(provider, manager, one);
+            var tabOne = h.Workspace.SelectedTab!;
+            var tabTwo = await AddTabAtAsync(h, two);
+            var tabDest = await AddTabAtAsync(h, dest);             // selected => paste target
+
+            // Preconditions for the "gone" checks.
+            Assert.Contains(tabOne.Items, i => i.Name == "a.txt");
+            Assert.Contains(tabTwo.Items, i => i.Name == "b.txt");
+
+            // A cut that spans two folders (like a search result would), set straight on the clipboard.
+            h.Workspace.SetClipboard([a, b], provider, isCut: true);
+            await h.Workspace.PasteCommand.Execute();
+
+            Assert.False(await provider.ExistsAsync(a.Path, ct));
+            Assert.False(await provider.ExistsAsync(b.Path, ct));
+            Assert.Empty(h.Notifications.Errors);
+            Assert.DoesNotContain(tabOne.Items, i => i.Name == "a.txt");
+            Assert.DoesNotContain(tabTwo.Items, i => i.Name == "b.txt");   // fails on the old Items[0]-only code
+            Assert.Equal(new HashSet<string> { "a.txt", "b.txt" }, tabDest.Items.Select(i => i.Name).ToHashSet());
+        }
+
     }
 }
