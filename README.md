@@ -70,6 +70,18 @@ milestones start — see Roadmap.
 - Keyboard shortcuts (Ctrl+C / Ctrl+X / Ctrl+V, Delete)
 - Live folder-size and multi-selection-size calculation with progress
 
+## Local Development
+
+Added a Docker Compose YAML file to start an Azurite container, 
+which provides a local Azure Storage emulator for cloud-related testing.
+This allows testing Azure Storage functionality locally without 
+requiring a connection to a live Azure Storage account. 
+
+Docker desktop is required.
+
+To start the container use the command (project root dir): `docker compose up -d`
+To shut down the container use the command (project root): `docker compose down`
+
 ## Roadmap
 
 - [x] Phase 0 — Setup & tooling
