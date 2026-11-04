@@ -28,15 +28,14 @@ namespace AzuriteSpike
                 var textBlobClient = containerClient.GetBlobClient(TextBlobName);
                 await textBlobClient.UploadAsync(
                     BinaryData.FromString("Hello from my .NET console app!"),
-                    overwrite: true,
-                    cancellationToken: cts.Token);
+                    overwrite: true);
 
                 Console.WriteLine($"Uploaded blob: {TextBlobName}");
                 Console.WriteLine($"Blob URI: {textBlobClient.Uri}\n");
 
                 // 3. Download hello.txt and print its text
                 Console.WriteLine("--- Downloading Text Blob Content ---");
-                var downloadResult = await textBlobClient.DownloadContentAsync(cancellationToken: cts.Token);
+                var downloadResult = await textBlobClient.DownloadContentAsync();
                 string textContent = downloadResult.Value.Content.ToString();
                 Console.WriteLine($"Downloaded Content: {textContent}\n");
 
@@ -45,13 +44,13 @@ namespace AzuriteSpike
                 var photoAClient = containerClient.GetBlobClient("photos/2025/a.jpg");
                 var photoBClient = containerClient.GetBlobClient("photos/b.jpg");
 
-                await photoAClient.UploadAsync(BinaryData.FromString("Fake JPEG Data A"), overwrite: true, cancellationToken: cts.Token);
-                await photoBClient.UploadAsync(BinaryData.FromString("Fake JPEG Data B"), overwrite: true, cancellationToken: cts.Token);
+                await photoAClient.UploadAsync(BinaryData.FromString("Fake JPEG Data A"), overwrite: true);
+                await photoBClient.UploadAsync(BinaryData.FromString("Fake JPEG Data B"), overwrite: true);
                 Console.WriteLine("Uploaded 'photos/2025/a.jpg' and 'photos/b.jpg'\n");
 
                 // 5. Flat Listing (GetBlobsAsync)
                 Console.WriteLine("--- Flat Blob Listing (GetBlobsAsync) ---");
-                await foreach (var blobItem in containerClient.GetBlobsAsync(cancellationToken: cts.Token))
+                await foreach (var blobItem in containerClient.GetBlobsAsync())
                 {
                     Console.WriteLine($" - {blobItem.Name}");
                 }
@@ -62,7 +61,7 @@ namespace AzuriteSpike
                 var hierarchyOptions = new GetBlobsByHierarchyOptions();
                 hierarchyOptions.Delimiter = "/";
 
-                await foreach (var hierarchyItem in containerClient.GetBlobsByHierarchyAsync(hierarchyOptions, cts.Token))
+                await foreach (var hierarchyItem in containerClient.GetBlobsByHierarchyAsync(hierarchyOptions))
                 {
                     if (hierarchyItem.IsPrefix)
                     {
@@ -78,7 +77,7 @@ namespace AzuriteSpike
                 // 7. Hierarchical Listing inside 'photos/' prefix
                 hierarchyOptions.Prefix = "photos/";
                 Console.WriteLine("--- Hierarchical Listing inside 'photos/' prefix ---");
-                await foreach (var hierarchyItem in containerClient.GetBlobsByHierarchyAsync(hierarchyOptions, cts.Token))
+                await foreach (var hierarchyItem in containerClient.GetBlobsByHierarchyAsync(hierarchyOptions))
                 {
                     if (hierarchyItem.IsPrefix)
                     {
