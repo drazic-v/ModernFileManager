@@ -64,7 +64,7 @@ milestones start — see Roadmap.
 
 - Multi-tab browsing across providers, with per-tab back/forward history
 - Multi-select file operations — copy, cut, paste, delete, rename
-- Paste conflict resolution (skip, replace, merge, keep both — with
+- Paste conflict resolution (skip, replace, merge, keep both — with 
   "apply to all remaining conflicts")
 - In-app toast notifications for success/failure feedback
 - Keyboard shortcuts (Ctrl+C / Ctrl+X / Ctrl+V, Delete)
@@ -89,9 +89,19 @@ To shut down the container use the command (project root): `docker compose down`
 - [x] Phase 2 — Local storage provider
 - [x] Phase 3 — UI: browsing, multi-select, notifications & dialogs
 - [x] Phase 4 — Transfer Manager
-- [ ] Phase 5 — Docker & Azurite
+- [x] Phase 5 — Docker & Azurite
 - [ ] Phase 6 — Azure provider
 - [ ] Phase 7 — Search, preview & polish
+
+## Notes
+
+- Phase 5 note : Azurite is a local emulator for Azure Blob Storage. 
+  It allows developers to test their applications that use Azure Blob 
+  Storage without needing an actual Azure account or incurring costs. 
+  The Azurite container can be started using Docker Compose, and it 
+  provides a local endpoint that mimics the behavior of Azure Blob Storage.
+- `FILEMANAGER_AZURE_CONNECTION` - This environment variable is used to 
+  specify the connection string for Azure Blob Storage (name might change). 
 
 ## Getting started
 
