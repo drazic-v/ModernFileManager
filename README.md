@@ -58,7 +58,7 @@ milestones start — see Roadmap.
 - **Avalonia UI** — cross-platform desktop UI
 - **ReactiveUI** — MVVM
 - **xUnit** — testing
-- **Docker + Azurite** — local Azure Blob emulation for development *(planned)*
+- **Docker + Azurite** — local Azure Blob emulation for development
 
 ## Features so far
 
@@ -70,17 +70,40 @@ milestones start — see Roadmap.
 - Keyboard shortcuts (Ctrl+C / Ctrl+X / Ctrl+V, Delete)
 - Live folder-size and multi-selection-size calculation with progress
 
-## Local Development
+## Local development
 
-Added a Docker Compose YAML file to start an Azurite container, 
-which provides a local Azure Storage emulator for cloud-related testing.
-This allows testing Azure Storage functionality locally without 
-requiring a connection to a live Azure Storage account. 
+The Azure provider is developed against
+[Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite),
+Microsoft's local emulator for Azure Storage, running in Docker. No Azure
+account or subscription is needed.
 
-Docker desktop is required.
+**Requires:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-To start the container use the command (project root dir): `docker compose up -d`
-To shut down the container use the command (project root): `docker compose down`
+From the repository root:
+
+```bash
+docker compose up -d      # start Azurite in the background
+docker compose down       # stop it (stored data is kept)
+docker compose down -v    # stop it and delete all stored data
+```
+
+Data lives in the named Docker volume `azurite-data`, so it survives
+restarts. The Blob endpoint is `http://127.0.0.1:10000`, and you can browse
+it with [Azure Storage Explorer](https://azure.microsoft.com/products/storage/storage-explorer/)
+using its local storage emulator connection.
+
+### Running the tests
+
+`dotnet test` runs the whole suite. Tests that need Azurite are skipped
+automatically when it isn't running, so everything else works without Docker.
+
+### Configuration
+
+| Environment variable | Purpose | Default |
+| --- | --- | --- |
+| `FILEMANAGER_AZURE_CONNECTION` | Connection string used by the Azure integration tests | `UseDevelopmentStorage=true` (local Azurite) |
+
+Never commit a real Azure connection string.
 
 ## Roadmap
 
@@ -92,16 +115,6 @@ To shut down the container use the command (project root): `docker compose down`
 - [x] Phase 5 — Docker & Azurite
 - [ ] Phase 6 — Azure provider
 - [ ] Phase 7 — Search, preview & polish
-
-## Notes
-
-- Phase 5 note : Azurite is a local emulator for Azure Blob Storage. 
-  It allows developers to test their applications that use Azure Blob 
-  Storage without needing an actual Azure account or incurring costs. 
-  The Azurite container can be started using Docker Compose, and it 
-  provides a local endpoint that mimics the behavior of Azure Blob Storage.
-- `FILEMANAGER_AZURE_CONNECTION` - This environment variable is used to 
-  specify the connection string for Azure Blob Storage (name might change). 
 
 ## Getting started
 
